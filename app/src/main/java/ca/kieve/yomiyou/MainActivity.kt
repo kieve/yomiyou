@@ -1,26 +1,19 @@
 package ca.kieve.yomiyou
 
 import android.os.Bundle
-import android.os.StrictMode
-import android.os.StrictMode.ThreadPolicy
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material.Button
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
-import ca.kieve.yomiyou.crawler.Crawler
-import ca.kieve.yomiyou.crawler.CrawlingWebView
+import ca.kieve.yomiyou.data.repository.NovelRepository
 import ca.kieve.yomiyou.ui.theme.YomiyouTheme
+import ca.kieve.yomiyou.util.getTag
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -29,8 +22,7 @@ import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
     companion object {
-        // val TAG: String = MainActivity::class.java.simpleName
-        private const val TAG = "FUCK-MainActivity"
+        private val TAG = getTag()
     }
 
     private val viewModel by viewModels<MainViewModel>()
@@ -38,44 +30,35 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val policy = ThreadPolicy.Builder().permitAll().build()
-        StrictMode.setThreadPolicy(policy)
+        val container = (application as YomiyouApplication).container
 
         setContent {
             MyApp {
-                MyScreenContent(viewModel.crawler)
+                MyScreenContent(container.novelRepository)
             }
         }
     }
 }
 
 @Composable
-fun MyScreenContent(crawler: Crawler) {
-    val requestUrl by crawler.requestedUrl
+fun MyScreenContent(novelRepository: NovelRepository) {
+    val perfectRun = "the-perfect-run"
+    val swordGod = "reincarnation-of-the-strongest-sword-god-lnv-24121303"
+    val novel = "https://www.lightnovelpub.com/novel/$perfectRun"
 
     val job = Job()
-    val scope = CoroutineScope(Dispatchers.Default + job)
+    val scope = CoroutineScope(Dispatchers.IO + job)
 
     Column {
         Row {
             Button(onClick = {
-                scope.launch(Dispatchers.Default) {
-                    crawler.readNovelInfo()
+                scope.launch {
+                    novelRepository.crawlNovelInfo(novel)
                 }
             }) {
                 Text(text = "Do Debug stuff")
             }
         }
-        CrawlingWebView(requestUrl) {
-            crawler.webViewUpdated(it)
-        }
-    }
-}
-
-@Composable
-fun Counter(count: Int, increment: () -> Unit) {
-    Button(onClick = { increment() }) {
-        Text(text = "I've been clicked $count times")
     }
 }
 
@@ -86,14 +69,5 @@ fun MyApp(content: @Composable () -> Unit) {
         Surface(color = MaterialTheme.colors.background) {
             content()
         }
-    }
-}
-
-@Composable
-fun Greeting(name: String) {
-    Surface(color = Color.Yellow) {
-        Text(
-            text = "Hello $name!",
-            modifier = Modifier.padding(16.dp))
     }
 }

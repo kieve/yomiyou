@@ -1,21 +1,21 @@
 package ca.kieve.yomiyou.crawler.source.en.l
 
 import android.util.Log
-import ca.kieve.yomiyou.crawler.ChapterInfo
 import ca.kieve.yomiyou.crawler.Crawler
-import ca.kieve.yomiyou.crawler.NovelInfo
+import ca.kieve.yomiyou.crawler.SourceCrawler
+import ca.kieve.yomiyou.crawler.model.ChapterInfo
+import ca.kieve.yomiyou.crawler.model.NovelInfo
+import ca.kieve.yomiyou.util.getTag
 
-class LightNovelPub(
-    homeUrl: String,
-    novelUrl: String)
-    : Crawler(homeUrl, novelUrl)
-{
+class LightNovelPub : SourceCrawler {
     companion object {
-        // val TAG: String = LightNovelPub::class.java.simpleName
-        private const val TAG = "FUCK-LightNovelPub"
-        const val NOVEL_SEARCH_FORMAT = "%s/search?title=%s"
-        const val CHAPTER_LIST_FORMAT = "%s/chapters/page-%d"
-        val PAGE_NUM_REGEX = ".*/page-(\\d+).*".toRegex()
+        private val TAG = getTag()
+
+        private const val NOVEL_SEARCH_FORMAT = "%s/search?title=%s"
+        private const val CHAPTER_LIST_FORMAT = "%s/chapters/page-%d"
+        private val PAGE_NUM_REGEX = ".*/page-(\\d+).*".toRegex()
+
+        private val BAD_CSS = listOf(".adsbox", "p[class]", ".ad", "p:nth-child(1) > strong")
     }
 
     override val baseUrls: List<String> = listOf(
@@ -23,13 +23,16 @@ class LightNovelPub(
             "https://www.lightnovelworld.com/"
     )
 
-    init {
-        badCss.addAll(listOf(".adsbox", "p[class]", ".ad", "p:nth-child(1) > strong"))
+    override fun initCrawler(crawler: Crawler) {
+        crawler.currentFilter = Crawler.DEFAULT_FILTER.copy(
+            badCss = Crawler.DEFAULT_FILTER.badCss + BAD_CSS
+        )
     }
 
-    override suspend fun searchNovel(query: String): List<Map<String, String>> {
+    override suspend fun searchNovel(crawler: Crawler, query: String): List<Map<String, String>> {
         val urlSafeQuery = query.lowercase().replace(' ', '+')
-        val soup = getSoup(String.format(NOVEL_SEARCH_FORMAT, homeUrl, urlSafeQuery))
+        val soup = crawler.getSoup(
+            String.format(NOVEL_SEARCH_FORMAT, crawler.currentHomeUrl, urlSafeQuery))
 
         val result: MutableList<Map<String, String>> = arrayListOf()
         for (a in soup.select(".novel-list .novel-item a")) {
@@ -45,27 +48,32 @@ class LightNovelPub(
         return result
     }
 
-    override suspend fun readNovelInfo(): NovelInfo {
-        Log.d(TAG, "readNovelInfo: Visiting $novelUrl")
-        var soup = getSoup(novelUrl)
+    override suspend fun readNovelInfo(crawler: Crawler): NovelInfo? {
+        Log.d(TAG, "readNovelInfo: Visiting ${crawler.currentNovelUrl}")
+
+        val novelUrl = crawler.currentNovelUrl ?: return null
+
+        val result = NovelInfo()
+
+        var soup = crawler.getSoup(novelUrl)
         val possibleTitle = soup.selectFirst(".novel-info .novel-title")
-        val novelTitle = possibleTitle?.text()?.trim() ?: ""
-        Log.d(TAG, "readNovelInfo: Novel title: $novelTitle")
+        result.title = possibleTitle?.text()?.trim() ?: ""
+        Log.d(TAG, "readNovelInfo: Novel title: ${result.title}")
 
         val possibleImage = soup.selectFirst(".glass-background img")
-        val novelCover =
+        result.coverUrl =
                 if (possibleImage != null)
-                    absoluteUrl(possibleImage.attr("src"))
+                    crawler.absoluteUrl(possibleImage.attr("src"))
                 else ""
-        Log.d(TAG, "readNovelInfo: Novel cover: $novelCover")
+        Log.d(TAG, "readNovelInfo: Novel cover: ${result.coverUrl}")
 
         val possibleAuthor = soup.selectFirst(".author a[href*=\"/author/\"]")
-        val novelAuthor = possibleAuthor?.select("span")?.text() ?: ""
-        Log.d(TAG, "readNovelInfo: Novel author: $novelAuthor")
+        result.author = possibleAuthor?.select("span")?.text() ?: ""
+        Log.d(TAG, "readNovelInfo: Novel author: ${result.author}")
 
         Log.d(TAG, "readNovelInfo: Getting chapters...")
 
-        soup = getSoup(String.format(CHAPTER_LIST_FORMAT, novelUrl, 1))
+        soup = crawler.getSoup(String.format(CHAPTER_LIST_FORMAT, novelUrl, 1))
         var lastPage = soup.selectFirst(".PagedList-skipToLast a")
         if (lastPage == null) {
             val paginationElements = soup.select(".pagination li")
@@ -82,29 +90,28 @@ class LightNovelPub(
                             ?: 0
                 else 0
         val soups = listOf(soup) + (2 .. pageCount).map {
-            getSoup(String.format(CHAPTER_LIST_FORMAT, novelUrl, it))
+            crawler.getSoup(String.format(CHAPTER_LIST_FORMAT, novelUrl, it))
         }
 
         for (subSoup in soups) {
             for (a in subSoup.select("ul.chapter-list li a")) {
-                chapters.add(ChapterInfo(
-                    chapters.size + 1,
+                result.chapters.add(ChapterInfo(
+                    result.chapters.size + 1,
                     a.select(".chapter-title").text(),
-                    absoluteUrl(a.attr("href"))
-                ))
+                    crawler.absoluteUrl(a.attr("href"))
+                )
+                )
             }
         }
 
-        val result = NovelInfo(novelTitle, novelAuthor, novelCover, false)
         Log.d(TAG, "$result")
-        Log.d(TAG, "$chapters")
         return result;
     }
 
-    override suspend fun downloadChapterBody(chapter: ChapterInfo): String {
-        val soup = getSoup(chapter.url)
+    override suspend fun downloadChapterBody(crawler: Crawler, chapter: ChapterInfo): String {
+        val soup = crawler.getSoup(chapter.url)
         val body = soup.selectFirst("#chapter-container")
                 ?: return ""
-        return extractContents(body)
+        return crawler.extractContents(body)
     }
 }

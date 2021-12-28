@@ -1,80 +1,61 @@
 package ca.kieve.yomiyou.crawler
 
 import android.icu.text.UnicodeSet
-import android.util.Log
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.State
-import androidx.compose.runtime.mutableStateOf
-import kotlinx.coroutines.CompletableJob
-import kotlinx.coroutines.Deferred
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
+import ca.kieve.yomiyou.crawler.model.NovelInfo
+import ca.kieve.yomiyou.crawler.source.en.l.LightNovelPub
+import ca.kieve.yomiyou.scraper.Scraper
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.jsoup.nodes.TextNode
 
-data class NovelInfo(
-    val title: String,
-    val author: String,
-    val cover: String,
-    val isRtl: Boolean
+data class HtmlFilter(
+    val badTags: Set<String>,
+    val badCss: Set<String>,
+    val pBlockTags: Set<String>,
+    val unchangedTags: Set<String>,
+    val plainTextTags: Set<String>,
+    val substitutions: Map<String, String>
 )
 
-data class ChapterInfo(
-    val id: Int,
-    val title: String,
-    val url: String
-)
-
-abstract class Crawler(
-    protected val homeUrl: String,
-    protected val novelUrl: String)
-{
+class Crawler(val scraper: Scraper) {
     companion object {
-        // val TAG: String = Crawler::class.java.simpleName
-        private const val TAG = "FUCK-Crawler"
         private const val USER_AGENT_FALLBACK = "Mozilla/5.0 (Linux; Android 6.0.1; SM-G920V Build/MMB29K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.98 Mobile Safari/537.36"
         private const val LINE_SEP = "<br>"
         private val INVISIBLE_CHARS = UnicodeSet("[\\p{Cf}\\p{Cc}]")
         private val NON_PRINTABLE_CHARS = UnicodeSet(INVISIBLE_CHARS)
                 .addAll(0x00, 0x20)
                 .addAll(0x7f, 0xa0)
-    }
 
-    abstract val baseUrls: List<String>
+        private val SOURCES = listOf<SourceCrawler>(
+            LightNovelPub()
+        )
 
-    abstract suspend fun searchNovel(query: String): List<Map<String, String>>
-    abstract suspend fun readNovelInfo(): NovelInfo
-    abstract suspend fun downloadChapterBody(chapter: ChapterInfo): String
-
-    protected val badTags: MutableSet<String> = hashSetOf(
+        private val BAD_TAGS: Set<String> = hashSetOf(
             "noscript", "script", "style", "iframe", "ins", "header", "footer", "button", "input",
             "amp-auto-ads", "pirate", "figcaption", "address", "tfoot", "object", "video", "audio",
             "source", "nav", "output", "select", "textarea", "form", "map"
-    )
+        )
 
-    protected val badCss: MutableSet<String> = hashSetOf(
+        private val BAD_CSS: Set<String> = hashSetOf(
             ".code-block", ".adsbygoogle", ".sharedaddy", ".inline-ad-slot", ".ads-middle",
             ".jp-relatedposts", ".ezoic-adpicker-ad", ".ezoic-ad-adaptive", ".ezoic-ad",
             ".cb_p6_patreon_button", "a[href*=\"patreon.com\"]"
-    )
+        )
 
-    protected val pBlockTags: MutableSet<String> = hashSetOf(
+        private val P_BLOCK_TAGS: Set<String> = hashSetOf(
             "p", "h1", "h2", "h3", "h4", "h5", "h6", "main", "aside", "article", "div", "section"
-    )
+        )
 
-    protected val unchangedTags: MutableSet<String> = hashSetOf(
+        private val UNCHANGED_TAGS: Set<String> = hashSetOf(
             "pre", "canvas", "img"
-    )
+        )
 
-    protected val plainTextTags: MutableSet<String> = hashSetOf(
+        private val PLAIN_TEXT_TAGS: Set<String> = hashSetOf(
             "span", "a", "abbr", "acronym", "label", "time"
-    )
+        )
 
-    protected val substitutions: MutableMap<String, String> = hashMapOf(
+        private val SUBSTITUTIONS: Map<String, String> = hashMapOf(
             "\"s" to "'s",
             "“s" to "'s",
             "”s" to "'s",
@@ -83,31 +64,78 @@ abstract class Crawler(
             "u003e" to ">",
             "<" to "&lt;",
             ">" to "&gt;"
-    )
+        )
 
-    protected val chapters: MutableList<ChapterInfo> = arrayListOf()
-
-    private val requestedUrlState: MutableState<String?> = mutableStateOf(null)
-    val requestedUrl: State<String?> = requestedUrlState
-
-    private var webViewUpdateJob: CompletableJob? = null
-    private var fetchedHtml: String? = null
+        val DEFAULT_FILTER = HtmlFilter(
+            BAD_TAGS, BAD_CSS, P_BLOCK_TAGS, UNCHANGED_TAGS, PLAIN_TEXT_TAGS, SUBSTITUTIONS
+        )
+    }
 
     var lastVisitedUrl: String? = null
+        private set
 
-    fun webViewUpdated(html: String) {
-        fetchedHtml = html
-        webViewUpdateJob!!.complete()
+    /*
+     * Current crawler state, resets when switching to a new source
+     */
+
+    private var currentSource: SourceCrawler? = null
+    var currentHomeUrl: String? = null
+        private set
+    var currentNovelUrl: String? = null
+        private set
+
+    // Intended to be modified by SourceCrawlers
+    var currentFilter: HtmlFilter = DEFAULT_FILTER
+
+    fun initCrawl(url: String): Boolean {
+        // Reset our filter, since it might have been changed by the previous source
+        currentFilter = DEFAULT_FILTER
+
+        // Clear our source, we'll set a new one if we find one for this new URL
+        currentSource = null
+        currentHomeUrl = null
+        currentNovelUrl = null
+
+        root@for (sourceCrawler in SOURCES) {
+            for (baseUrl in sourceCrawler.baseUrls) {
+                if (url.startsWith(baseUrl)) {
+                    currentSource = sourceCrawler
+                    currentHomeUrl = baseUrl
+                    sourceCrawler.initCrawler(this)
+                    break@root
+                }
+            }
+        }
+
+        return currentSource != null
     }
 
-    protected suspend fun getSoup(url: String): Document {
-        webViewUpdateJob = Job()
-        requestedUrlState.value = url
-        webViewUpdateJob!!.join()
-        return Jsoup.parse(fetchedHtml ?: "", url)
+    suspend fun getSoup(url: String): Document {
+        val html = scraper.getPageHtml(url)
+        return Jsoup.parse(html ?: "", url)
     }
 
-    protected fun absoluteUrl(_url: String = "", _pageUrl: String? = null): String {
+    suspend fun crawl(novelUrl: String): NovelInfo? {
+        val source = currentSource
+        val homeUrl = currentHomeUrl
+        if (source == null
+            || homeUrl == null
+            || !novelUrl.startsWith(homeUrl))
+        {
+            return null
+        }
+
+        if (novelUrl.isBlank()) {
+            return null
+        }
+        currentNovelUrl = novelUrl
+
+        return source.readNovelInfo(this)
+    }
+
+    fun absoluteUrl(_url: String = "", _pageUrl: String? = null): String {
+        val homeUrl = currentHomeUrl ?: return ""
+
         val url = _url.trim()
 
         if (url.length > 1000 || url.startsWith("data:")) {
@@ -115,33 +143,40 @@ abstract class Crawler(
         }
 
         val pageUrl = _pageUrl ?: lastVisitedUrl
-        if (url.isEmpty()) {
-            return url
-        } else if (url.startsWith("//")) {
-            return homeUrl.split(":")[0] + ":" + url
-        } else if (url.contains("//")) {
-            return url
-        } else if (url.startsWith("/")) {
-            return homeUrl.trim('/') + url
-        } else if (pageUrl != null) {
-            return pageUrl.trim('/') + '/' + url
-        } else {
-            return homeUrl + url
+        when {
+            url.isEmpty() -> {
+                return url
+            }
+            url.startsWith("//") -> {
+                return homeUrl.split(":")[0] + ":" + url
+            }
+            url.contains("//") -> {
+                return url
+            }
+            url.startsWith("/") -> {
+                return homeUrl.trim('/') + url
+            }
+            pageUrl != null -> {
+                return pageUrl.trim('/') + '/' + url
+            }
+            else -> {
+                return homeUrl + url
+            }
         }
     }
 
     private fun cleanText(node: TextNode): String {
         val rawText = node.text().trim()
         var text = rawText.filterNot { c -> NON_PRINTABLE_CHARS.contains(c.code) }
-        for ((key, value) in substitutions) {
+        for ((key, value) in currentFilter.substitutions) {
             text = text.replace(key, value)
         }
         return text
     }
 
     private fun cleanContents(div: Element) {
-        if (badCss.isNotEmpty()) {
-            for (bad in div.select(badCss.joinToString(","))) {
+        if (currentFilter.badCss.isNotEmpty()) {
+            for (bad in div.select(currentFilter.badCss.joinToString(","))) {
                 bad.remove()
             }
         }
@@ -154,7 +189,7 @@ abstract class Crawler(
                 if (next != null && next.nodeName().lowercase() == "br") {
                     next.remove()
                 }
-            } else if (badTags.contains(tag.tagName())) {
+            } else if (currentFilter.badTags.contains(tag.tagName())) {
                 tag.remove()
             } else if (tag.attributesSize() > 0) {
                 // TODO: This is doing something with the "src" attr
@@ -178,7 +213,7 @@ abstract class Crawler(
         return false
     }
 
-    protected fun extractContents(tag: Element): String {
+    fun extractContents(tag: Element): String {
         cleanContents(tag)
         val body = internalExtractContents(tag).joinToString(" ")
         return body.split(LINE_SEP)
@@ -193,7 +228,7 @@ abstract class Crawler(
             if (elem.normalName() == "#comment") {
                 continue
             }
-            if (unchangedTags.contains(elem.normalName())) {
+            if (currentFilter.unchangedTags.contains(elem.normalName())) {
                 body.add(elem.text())
                 continue
             }
@@ -210,8 +245,8 @@ abstract class Crawler(
                 body.add(cleanText(node))
             }
 
-            val isBlock = pBlockTags.contains(elem.normalName())
-            val isPlain = plainTextTags.contains(elem.normalName())
+            val isBlock = currentFilter.pBlockTags.contains(elem.normalName())
+            val isPlain = currentFilter.plainTextTags.contains(elem.normalName())
 
             val content = internalExtractContents(elem).joinToString(" ")
 
