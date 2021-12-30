@@ -6,7 +6,7 @@ import androidx.room.ForeignKey
 
 @Entity(
     tableName = "chapter_meta",
-    primaryKeys = [ "id", "novelId" ],
+    primaryKeys = [ "id", "novel_id" ],
     foreignKeys = [
         ForeignKey(
             entity = NovelMeta::class,
@@ -21,11 +21,11 @@ data class ChapterMeta(
     @ColumnInfo(name = "id")
     val id: Long,
 
-    @ColumnInfo(name = "novel_id")
+    @ColumnInfo(name = "novel_id", index = true)
     val novelId: Long,
 
     @ColumnInfo(name = "title")
-    val canonId: String,
+    val title: String,
 
     @ColumnInfo(name = "url")
     val url: String

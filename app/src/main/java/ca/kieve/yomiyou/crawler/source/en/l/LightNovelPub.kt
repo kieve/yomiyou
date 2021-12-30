@@ -53,7 +53,7 @@ class LightNovelPub : SourceCrawler {
 
         val novelUrl = crawler.currentNovelUrl ?: return null
 
-        val result = NovelInfo()
+        val result = NovelInfo(novelUrl)
 
         var soup = crawler.getSoup(novelUrl)
         val possibleTitle = soup.selectFirst(".novel-info .novel-title")
@@ -96,7 +96,7 @@ class LightNovelPub : SourceCrawler {
         for (subSoup in soups) {
             for (a in subSoup.select("ul.chapter-list li a")) {
                 result.chapters.add(ChapterInfo(
-                    result.chapters.size + 1,
+                    result.chapters.size + 1.toLong(),
                     a.select(".chapter-title").text(),
                     crawler.absoluteUrl(a.attr("href"))
                 )
