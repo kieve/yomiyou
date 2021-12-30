@@ -1,3 +1,16 @@
 <resources>
     <string name="app_name">Yomiyou</string>
+
+    <!-- General strings -->
+    <string name="yomi_shortChapterNum">Ch. %d</string>
+
+    <!--  Novel List Screen  -->
+    <string name="novelList_title">Novel List</string>
+
+    <!--  Chapter List Screen  -->
+    <string name="chapterList_title">Chapter List: %s</string>
+
+    <!-- Novel Card -->
+    <string name="novelCard_imageContentDescription">Cover image for the novel titled %s</string>
+    <string name="novelCard_chapterCount">Chapters: %d</string>
 </resources>

@@ -5,7 +5,7 @@
     <uses-permission android:name="android.permission.INTERNET"/>
 
     <application
-        android:name=".YomiyouApplication"
+        android:name=".YomiApplication"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
@@ -14,7 +14,7 @@
         android:theme="@style/Theme.Yomiyou">
 
         <activity
-            android:name=".MainActivity"
+            android:name=".YomiActivity"
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.Yomiyou.NoActionBar">

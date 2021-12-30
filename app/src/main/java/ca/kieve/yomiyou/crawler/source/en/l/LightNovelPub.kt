@@ -96,10 +96,9 @@ class LightNovelPub : SourceCrawler {
         for (subSoup in soups) {
             for (a in subSoup.select("ul.chapter-list li a")) {
                 result.chapters.add(ChapterInfo(
-                    result.chapters.size + 1.toLong(),
-                    a.select(".chapter-title").text(),
-                    crawler.absoluteUrl(a.attr("href"))
-                )
+                    id = result.chapters.size + 1.toLong(),
+                    url = crawler.absoluteUrl(a.attr("href")),
+                    title = a.select(".chapter-title").text())
                 )
             }
         }

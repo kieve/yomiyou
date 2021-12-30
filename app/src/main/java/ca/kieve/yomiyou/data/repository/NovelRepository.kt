@@ -2,12 +2,15 @@ package ca.kieve.yomiyou.data.repository
 
 import android.content.Context
 import android.util.Log
-import ca.kieve.yomiyou.YomiyouApplication
+import ca.kieve.yomiyou.YomiApplication
 import ca.kieve.yomiyou.crawler.model.NovelInfo
 import ca.kieve.yomiyou.data.database.model.ChapterMeta
 import ca.kieve.yomiyou.data.database.model.NovelMeta
+import ca.kieve.yomiyou.data.model.Novel
 import ca.kieve.yomiyou.util.getTag
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 
@@ -16,34 +19,48 @@ class NovelRepository(context: Context) {
         private val TAG: String = getTag()
     }
 
-    private val appContainer = (context as YomiyouApplication).container
+    private val appContainer = (context as YomiApplication).container
     private val novelDao = appContainer.database.novelDao()
     private val crawler = appContainer.crawler
 
-    private val allNovels: MutableMap<Long, NovelMeta> = hashMapOf()
-    private val allChapters: MutableMap<Long, MutableList<ChapterMeta>> = hashMapOf()
+    private val _novels: MutableStateFlow<MutableMap<Long, Novel>> = MutableStateFlow(hashMapOf())
+    val novels: StateFlow<Map<Long, Novel>> = _novels
 
     init {
         runBlocking {
-            allNovels.putAll(novelDao.getAllNovelMeta().map { it.id to it })
-
+            val novelMetas = novelDao.getAllNovelMeta()
             val chapters = novelDao.getAllChapterMeta()
+
+            val chapterMap = hashMapOf<Long, MutableList<ChapterMeta>>()
             for (chapter in chapters) {
-                allChapters.computeIfAbsent(chapter.novelId) { arrayListOf() }
+                chapterMap.computeIfAbsent(chapter.novelId) { arrayListOf() }
                     .add(chapter)
             }
-            for (chapterList in allChapters.values) {
+            for (chapterList in chapterMap.values) {
                 chapterList.sortBy { it.id }
             }
-            Log.d(TAG, "Loaded novels: $allNovels")
-            Log.d(TAG, "loaded chapters: $allChapters")
+
+            val mappedNovels = hashMapOf<Long, Novel>()
+            for (novelMeta in novelMetas) {
+                mappedNovels[novelMeta.id] = Novel(
+                    novelMeta,
+                    chapterMap[novelMeta.id] ?: emptyList()
+                )
+            }
+
+            _novels.value = mappedNovels
+            Log.d(TAG, "Loaded novels: ${novels.value}")
         }
+    }
+
+    fun getNovel(id: Long): Novel? {
+        return novels.value[id]
     }
 
     suspend fun crawlNovelInfo(url: String) = withContext(Dispatchers.IO) {
         // First, see if we already have this novel.
-        for (novel in allNovels.values) {
-            if (novel.url == url) {
+        for (novel in novels.value.values) {
+            if (novel.metadata.url == url) {
                 // TODO update chapter list
                 Log.d(TAG, "crawlNovelInfo: Already have this novel. Updates not implemented")
                 return@withContext
@@ -72,22 +89,20 @@ class NovelRepository(context: Context) {
             coverUrl = novelInfo.coverUrl
         )
         val novelId = novelDao.upsertNovelMeta(novelMeta)
-        allNovels[novelMeta.id] = novelMeta
 
-        val chapterMetaList = mutableListOf<ChapterMeta>()
-        for (chapterInfo in novelInfo.chapters) {
-            chapterMetaList.add(ChapterMeta(
-                chapterInfo.id,
+        val chapterList = novelInfo.chapters.map {
+            ChapterMeta(
+                it.id,
                 novelId,
-                chapterInfo.title,
-                chapterInfo.url
-            ))
+                it.title,
+                it.url
+            )
         }
-        novelDao.upsertChapterMeta(chapterMetaList)
-        for (chapterMeta in chapterMetaList) {
-            allChapters.computeIfAbsent(chapterMeta.novelId) { arrayListOf() }
-                .add(chapterMeta)
-        }
+        novelDao.upsertChapterMeta(chapterList)
+
+        val result = _novels.value.toMutableMap()
+        result[novelId] = Novel(novelMeta, chapterList)
+        _novels.value = result
 
         Log.d(TAG, "Added novel and saved chapters to DB")
     }
