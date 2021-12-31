@@ -68,6 +68,10 @@ class NovelRepository(context: Context) {
         return _novels.value[id]
     }
 
+    private fun setNovel(novel: Novel) {
+        _novels.value = (_novels.value + Pair(novel.metadata.id, novel)).toMutableMap()
+    }
+
     suspend fun crawlNovelInfo(url: String) = withContext(Dispatchers.IO) {
         // First, see if we already have this novel.
         for (novel in novels.value.values) {
@@ -103,22 +107,18 @@ class NovelRepository(context: Context) {
 
         val chapterList = novelInfo.chapters.map {
             ChapterMeta(
-                it.id,
-                novelId,
-                it.title,
-                it.url
+                id = it.id,
+                novelId = novelId,
+                title = it.title,
+                url = it.url
             )
         }
         novelDao.upsertChapterMeta(chapterList)
-
-        _novels.value = (_novels.value + Pair(
-            novelId,
-            Novel(
-                metadata = novelMeta,
-                coverFile = null,
-                chapterList))
-        ).toMutableMap()
-
+        setNovel(Novel(
+            metadata = novelMeta,
+            coverFile = null,
+            chapters = chapterList)
+        )
         Log.d(TAG, "Added novel and saved chapters to DB")
 
         downloadCover(novelMeta)
@@ -135,6 +135,7 @@ class NovelRepository(context: Context) {
     private suspend fun downloadCover(novelMeta: NovelMeta) = withContext(Dispatchers.IO) {
         Log.d(TAG, "downloadCover")
         if (novelMeta.coverUrl.isNullOrBlank()) {
+            Log.w(TAG, "downloadCover: Cover URL is null")
             return@withContext
         }
 
@@ -154,17 +155,19 @@ class NovelRepository(context: Context) {
 
         val coverFile = yomiFiles.writeNovelCover(novelMeta, fileExtension, bytes)
         if (coverFile == null || !coverFile.exists()) {
+            Log.w(TAG, "downloadCover: Cover file missing")
             return@withContext
         }
 
-        val novel = _novels.value[novelMeta.id]
-        if (novel != null) {
-            _novels.value = (_novels.value + Pair(
-                novelMeta.id,
-                novel.copy(
-                    coverFile = coverFile
-                ))
-            ).toMutableMap()
+        val novel = getNovel(novelMeta.id)
+        if (novel == null) {
+            Log.w(TAG, "downloadCover: Novel to update is null")
+            return@withContext
         }
+        setNovel(
+            novel.copy(
+                coverFile = coverFile
+            )
+        )
     }
 }
