@@ -1,8 +1,10 @@
 package ca.kieve.yomiyou.ui.composable.screen
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.FabPosition
@@ -35,8 +37,10 @@ import kotlinx.coroutines.launch
 fun NovelListScreen(yomiContext: YomiContext) {
     /** Debug stuff **/
     val perfectRun = "the-perfect-run"
+    val lordOfMysteries = "lord-of-the-mysteries-wn-24121303"
+    val magesAreTooOp = "mages-are-too-op-wn-19072354"
     val swordGod = "reincarnation-of-the-strongest-sword-god-lnv-24121303"
-    val novel = "https://www.lightnovelpub.com/novel/$perfectRun"
+    val novel = "https://www.lightnovelpub.com/novel/$magesAreTooOp"
     /*****************/
 
     val navController = yomiContext.navController
@@ -80,14 +84,17 @@ private fun NovelList(
     val novelList = novels.values.toList()
     LazyColumn(
         modifier = Modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(16.dp)
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         items(novelList) { novel ->
-            NovelCard(novel, Modifier.clickable {
-                navController.navigate(
-                    YomiScreen.ChapterListNav.withArgs(
-                        novel.metadata.id.toString()))
-            })
+            NovelCard(novel, Modifier
+                .clickable {
+                    navController.navigate(
+                        YomiScreen.ChapterListNav.withArgs(
+                            novel.metadata.id.toString()))
+                }
+            )
         }
     }
 }

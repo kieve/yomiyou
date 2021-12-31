@@ -14,8 +14,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import ca.kieve.yomiyou.R
 import ca.kieve.yomiyou.data.model.Novel
@@ -42,13 +42,15 @@ fun NovelCard(novel: Novel, modifier: Modifier = Modifier) {
                 modifier = Modifier
                     .size(60.dp, 80.dp)
                     .padding(end = 8.dp),
-                contentScale = ContentScale.Fit
+                contentScale = ContentScale.FillBounds
             )
             Column(Modifier.padding(8.dp)) {
                 Text(
                     text = novel.metadata.title,
                     style = MaterialTheme.typography.h5,
-                    color = MaterialTheme.colors.onSurface
+                    color = MaterialTheme.colors.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = stringResource(
