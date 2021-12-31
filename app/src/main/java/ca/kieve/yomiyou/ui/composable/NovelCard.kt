@@ -19,13 +19,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import ca.kieve.yomiyou.R
 import ca.kieve.yomiyou.data.model.Novel
+import coil.compose.rememberImagePainter
 
 @Composable
 fun NovelCard(novel: Novel, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .padding(10.dp)
             .wrapContentHeight(),
         shape = MaterialTheme.shapes.medium,
         elevation = 5.dp,
@@ -35,12 +35,12 @@ fun NovelCard(novel: Novel, modifier: Modifier = Modifier) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Image(
-                painter = painterResource(id = R.drawable.ic_launcher_background),
+                painter = rememberImagePainter(novel.coverFile),
                 contentDescription = stringResource(
                     id = R.string.novelCard_imageContentDescription,
                     novel.metadata.title),
                 modifier = Modifier
-                    .size(45.dp, 60.dp)
+                    .size(60.dp, 80.dp)
                     .padding(end = 8.dp),
                 contentScale = ContentScale.Fit
             )

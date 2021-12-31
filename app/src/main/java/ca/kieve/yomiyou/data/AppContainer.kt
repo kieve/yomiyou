@@ -11,6 +11,10 @@ class AppContainer(private val appContext: Context) {
         YomiDatabase.getDatabase(appContext)
     }
 
+    val files: YomiFiles by lazy {
+        YomiFiles(appContext)
+    }
+
     val crawler: Crawler by lazy {
         Crawler(WebViewScraper(appContext))
     }
