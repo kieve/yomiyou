@@ -65,7 +65,7 @@ class NovelRepository(context: Context) {
     }
 
     fun getNovel(id: Long): Novel? {
-        return novels.value[id]
+        return _novels.value[id]
     }
 
     suspend fun crawlNovelInfo(url: String) = withContext(Dispatchers.IO) {
@@ -111,13 +111,13 @@ class NovelRepository(context: Context) {
         }
         novelDao.upsertChapterMeta(chapterList)
 
-        val result = _novels.value.toMutableMap()
-        val novel = Novel(
-            metadata = novelMeta,
-            coverFile = null,
-            chapterList)
-        result[novelId] = novel
-        _novels.value = result
+        _novels.value = (_novels.value + Pair(
+            novelId,
+            Novel(
+                metadata = novelMeta,
+                coverFile = null,
+                chapterList))
+        ).toMutableMap()
 
         Log.d(TAG, "Added novel and saved chapters to DB")
 
@@ -159,9 +159,12 @@ class NovelRepository(context: Context) {
 
         val novel = _novels.value[novelMeta.id]
         if (novel != null) {
-            _novels.value[novelMeta.id] = novel.copy(
-                coverFile = coverFile
-            )
+            _novels.value = (_novels.value + Pair(
+                novelMeta.id,
+                novel.copy(
+                    coverFile = coverFile
+                ))
+            ).toMutableMap()
         }
     }
 }

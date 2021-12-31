@@ -39,8 +39,10 @@ fun NovelListScreen(yomiContext: YomiContext) {
     val perfectRun = "the-perfect-run"
     val lordOfMysteries = "lord-of-the-mysteries-wn-24121303"
     val magesAreTooOp = "mages-are-too-op-wn-19072354"
+    val novelsExtra = "the-novels-extra-19072354"
+    val theBeginAfterEnd = "the-beginning-after-the-end-web-novel-02121804"
     val swordGod = "reincarnation-of-the-strongest-sword-god-lnv-24121303"
-    val novel = "https://www.lightnovelpub.com/novel/$magesAreTooOp"
+    val novel = "https://www.lightnovelpub.com/novel/$theBeginAfterEnd"
     /*****************/
 
     val navController = yomiContext.navController

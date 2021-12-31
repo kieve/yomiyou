@@ -82,8 +82,8 @@ private fun ChapterList(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Divider()
             }
+            Divider()
         }
     }
 }
