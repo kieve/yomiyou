@@ -57,6 +57,7 @@ class WebViewScraper(context: Context) : Scraper {
     }
 
     override suspend fun getPageHtml(url: String): String? {
+        Log.d(TAG, "getPageHtml: $url")
         webViewUpdateJob = Job()
         Handler(Looper.getMainLooper()).post {
             webView.loadUrl(url)

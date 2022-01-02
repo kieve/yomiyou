@@ -15,7 +15,8 @@ data class HtmlFilter(
     val pBlockTags: Set<String>,
     val unchangedTags: Set<String>,
     val plainTextTags: Set<String>,
-    val substitutions: Map<String, String>
+    val substitutions: Map<String, String>,
+    val blacklistRegexes: Set<Regex>
 )
 
 class Crawler(val scraper: Scraper) {
@@ -24,8 +25,8 @@ class Crawler(val scraper: Scraper) {
         private const val LINE_SEP = "<br>"
         private val INVISIBLE_CHARS = UnicodeSet("[\\p{Cf}\\p{Cc}]")
         private val NON_PRINTABLE_CHARS = UnicodeSet(INVISIBLE_CHARS)
-                .addAll(0x00, 0x20)
-                .addAll(0x7f, 0xa0)
+                .addAll(0x00, 0x20 - 1)
+                .addAll(0x7f, 0xa0 - 1)
 
         private val SOURCES = listOf<SourceCrawler>(
             LightNovelPub()
@@ -67,7 +68,13 @@ class Crawler(val scraper: Scraper) {
         )
 
         val DEFAULT_FILTER = HtmlFilter(
-            BAD_TAGS, BAD_CSS, P_BLOCK_TAGS, UNCHANGED_TAGS, PLAIN_TEXT_TAGS, SUBSTITUTIONS
+            badTags = BAD_TAGS,
+            badCss = BAD_CSS,
+            pBlockTags = P_BLOCK_TAGS,
+            unchangedTags = UNCHANGED_TAGS,
+            plainTextTags = PLAIN_TEXT_TAGS,
+            substitutions = SUBSTITUTIONS,
+            blacklistRegexes = setOf()
         )
     }
 
@@ -96,6 +103,8 @@ class Crawler(val scraper: Scraper) {
         currentHomeUrl = null
         currentNovelUrl = null
 
+        // TODO: Build a trie mapping the baseUrls to their sources. Then here, we can search for
+        //       this URL in the trie and select the deepest matching source crawler.
         root@for (sourceCrawler in SOURCES) {
             for (baseUrl in sourceCrawler.baseUrls) {
                 if (url.startsWith(baseUrl)) {
@@ -124,13 +133,21 @@ class Crawler(val scraper: Scraper) {
         {
             return null
         }
-
-        if (novelUrl.isBlank()) {
-            return null
-        }
         currentNovelUrl = novelUrl
 
         return source.readNovelInfo(this)
+    }
+
+    suspend fun downloadChapter(chapterUrl: String): String? {
+        val source = currentSource
+        val homeUrl = currentHomeUrl
+        if (source == null
+            || homeUrl == null
+            || !chapterUrl.startsWith(homeUrl))
+        {
+            return null
+        }
+        return source.downloadChapterBody(this, chapterUrl)
     }
 
     fun absoluteUrl(_url: String = "", _pageUrl: String? = null): String {
@@ -209,7 +226,11 @@ class Crawler(val scraper: Scraper) {
         if (text.isEmpty()) {
             return true
         }
-        // TODO: Implement the blacklist patterns
+        for (regex in currentFilter.blacklistRegexes) {
+            if (regex.containsMatchIn(text)) {
+                return true
+            }
+        }
         return false
     }
 

@@ -1,6 +1,5 @@
 package ca.kieve.yomiyou.crawler
 
-import ca.kieve.yomiyou.crawler.model.ChapterInfo
 import ca.kieve.yomiyou.crawler.model.NovelInfo
 
 interface SourceCrawler {
@@ -10,5 +9,5 @@ interface SourceCrawler {
 
     suspend fun searchNovel(crawler: Crawler, query: String): List<Map<String, String>>
     suspend fun readNovelInfo(crawler: Crawler): NovelInfo?
-    suspend fun downloadChapterBody(crawler: Crawler, chapter: ChapterInfo): String
+    suspend fun downloadChapterBody(crawler: Crawler, url: String): String
 }

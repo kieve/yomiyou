@@ -13,9 +13,17 @@ class LightNovelPub : SourceCrawler {
 
         private const val NOVEL_SEARCH_FORMAT = "%s/search?title=%s"
         private const val CHAPTER_LIST_FORMAT = "%s/chapters/page-%d"
-        private val PAGE_NUM_REGEX = ".*/page-(\\d+).*".toRegex()
+        private val PAGE_NUM_REGEX = """.*/page-(\d+).*""".toRegex()
 
-        private val BAD_CSS = listOf(".adsbox", "p[class]", ".ad", "p:nth-child(1) > strong")
+        private val BAD_CSS = setOf(
+            ".adsbox",
+            "p[class]",
+            ".ad",
+            "p:nth-child(1) > strong"
+        )
+        private val BLACKLIST = setOf(
+            ".*lightnovelpub.com.*".toRegex()
+        )
     }
 
     override val baseUrls: List<String> = listOf(
@@ -25,7 +33,8 @@ class LightNovelPub : SourceCrawler {
 
     override fun initCrawler(crawler: Crawler) {
         crawler.currentFilter = Crawler.DEFAULT_FILTER.copy(
-            badCss = Crawler.DEFAULT_FILTER.badCss + BAD_CSS
+            badCss = Crawler.DEFAULT_FILTER.badCss + BAD_CSS,
+            blacklistRegexes = Crawler.DEFAULT_FILTER.blacklistRegexes + BLACKLIST
         )
     }
 
@@ -49,8 +58,7 @@ class LightNovelPub : SourceCrawler {
     }
 
     override suspend fun readNovelInfo(crawler: Crawler): NovelInfo? {
-        Log.d(TAG, "readNovelInfo: Visiting ${crawler.currentNovelUrl}")
-
+        Log.d(TAG, "readNovelInfo: ${crawler.currentNovelUrl}")
         val novelUrl = crawler.currentNovelUrl ?: return null
 
         val result = NovelInfo(novelUrl)
@@ -107,10 +115,13 @@ class LightNovelPub : SourceCrawler {
         return result;
     }
 
-    override suspend fun downloadChapterBody(crawler: Crawler, chapter: ChapterInfo): String {
-        val soup = crawler.getSoup(chapter.url)
+    override suspend fun downloadChapterBody(crawler: Crawler, url: String): String {
+        val soup = crawler.getSoup(url)
         val body = soup.selectFirst("#chapter-container")
-                ?: return ""
+        if (body == null) {
+            Log.d(TAG, "downloadChapterBody: Body is null.")
+            return ""
+        }
         return crawler.extractContents(body)
     }
 }

@@ -91,6 +91,16 @@ class NovelRepository(context: Context) {
         addNovel(novelInfo)
     }
 
+    suspend fun downloadChapter(chapterMeta: ChapterMeta) = withContext(Dispatchers.IO) {
+        if (yomiFiles.chapterExists(chapterMeta)) {
+            return@withContext
+        }
+
+        crawler.initCrawl(chapterMeta.url)
+        val content = crawler.downloadChapter(chapterMeta.url)
+        Log.d(TAG, "downloadChapter: $content")
+    }
+
     private suspend fun addNovel(novelInfo: NovelInfo) {
         val title = novelInfo.title
         if (title.isNullOrBlank()) {
