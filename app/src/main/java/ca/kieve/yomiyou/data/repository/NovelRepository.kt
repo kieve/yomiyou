@@ -37,6 +37,9 @@ class NovelRepository(context: Context) {
     private val _novels: MutableStateFlow<MutableMap<Long, Novel>> = MutableStateFlow(hashMapOf())
     val novels: StateFlow<Map<Long, Novel>> = _novels
 
+    private val _openChapter: MutableStateFlow<String?> = MutableStateFlow(null)
+    val openChapter: StateFlow<String?> = _openChapter
+
     init {
         ioScope.launch {
             loadNovels()
@@ -46,12 +49,23 @@ class NovelRepository(context: Context) {
     fun debugPrint(chapterMeta: ChapterMeta) {
         ioScope.launch {
             val novel = getNovel(chapterMeta.novelId)
-            Log.d(TAG, novel?.chapterFiles?.get(chapterMeta)?.readText() ?: "It's null")
+            Log.d(TAG, novel?.chapterFiles?.get(chapterMeta.id)?.readText() ?: "It's null")
         }
     }
 
     fun getNovel(id: Long): Novel? {
         return _novels.value[id]
+    }
+
+    fun getChapter(novelId: Long, chapterId: Long): ChapterMeta? {
+        // TODO: Maybe make a map for this
+        val novel = getNovel(novelId) ?: return null
+        for (chapterMeta in novel.chapters) {
+            if (chapterMeta.id == chapterId) {
+                return chapterMeta
+            }
+        }
+        return null
     }
 
     private fun setNovel(novel: Novel) {
@@ -127,7 +141,7 @@ class NovelRepository(context: Context) {
                     return@withContext
                 }
                 setNovel(novel.copy(
-                    chapterFiles = novel.chapterFiles + Pair(chapterMeta, chapterFile)
+                    chapterFiles = novel.chapterFiles + Pair(chapterMeta.id, chapterFile)
                 ))
             }
             return@withContext
@@ -207,7 +221,7 @@ class NovelRepository(context: Context) {
                 return@withContext
             }
             setNovel(novel.copy(
-                chapterFiles = novel.chapterFiles + Pair(chapterMeta, chapterFile)
+                chapterFiles = novel.chapterFiles + Pair(chapterMeta.id, chapterFile)
             ))
         }
     }
@@ -262,5 +276,23 @@ class NovelRepository(context: Context) {
         Log.d(TAG, "Added novel and saved chapters to DB")
 
         downloadCover(novelMeta)
+    }
+
+    fun openChapter(novelId: Long, chapterId: Long) {
+        ioScope.launch {
+            val chapterFile = getNovel(novelId)?.chapterFiles?.get(chapterId)
+            if (chapterFile == null || !chapterFile.exists()) {
+                Log.d(TAG, "FUCK the chapter file isn't there? $chapterFile")
+                _openChapter.value = "Isn't downloaded yet."
+            } else {
+                val text = chapterFile.readText()
+                if (text.isBlank()) {
+                    Log.d(TAG, "FUCK It's BLANK: |$text|")
+                    _openChapter.value = "Chapter file is there, but it's blank ☹️"
+                } else {
+                    _openChapter.value = chapterFile.readText()
+                }
+            }
+        }
     }
 }

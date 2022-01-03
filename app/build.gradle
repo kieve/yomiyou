@@ -66,6 +66,7 @@ dependencies {
 
     implementation 'org.jsoup:jsoup:1.14.3' // Requesting and parsing HTML
     implementation 'io.coil-kt:coil-compose:1.4.0'
+    implementation 'com.github.jeziellago:compose-markdown:0.2.6'
 
     // Testing Dependencies
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.2'

@@ -1,6 +1,5 @@
 package ca.kieve.yomiyou.ui.composable.screen
 
-import android.util.Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -22,9 +21,9 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import ca.kieve.yomiyou.R
 import ca.kieve.yomiyou.YomiContext
+import ca.kieve.yomiyou.YomiScreen
 import ca.kieve.yomiyou.data.model.Novel
 import ca.kieve.yomiyou.data.repository.NovelRepository
-import ca.kieve.yomiyou.util.getTag
 
 @Composable
 fun ChapterListScreen(
@@ -78,7 +77,12 @@ private fun ChapterList(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable {
-                        novelRepository.debugPrint(chapter)
+                        navController.navigate(
+                            YomiScreen.ChapterNav.withArgs(
+                                chapter.novelId.toString(),
+                                chapter.id.toString()
+                            )
+                        )
                     }
             ) {
                 Text(

@@ -9,5 +9,5 @@ data class Novel(
     val chapters: List<ChapterMeta> = emptyList(),
 
     val coverFile: File? = null,
-    val chapterFiles: Map<ChapterMeta, File> = emptyMap()
+    val chapterFiles: Map<Long, File> = emptyMap()
 )
