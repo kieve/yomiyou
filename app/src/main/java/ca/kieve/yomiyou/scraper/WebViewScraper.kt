@@ -12,14 +12,17 @@ import android.webkit.WebViewClient
 import ca.kieve.yomiyou.util.getTag
 import kotlinx.coroutines.CompletableJob
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.io.StringReader
 
 class WebViewScraper(context: Context) : Scraper {
     companion object {
         private var TAG = getTag()
-        private val GET_HTML_JSON = "(function() { return ('<html>'+document.getElementsByTagName('html')[0].innerHTML+'</html>'); })();";
+        private const val GET_HTML_JSON = "(function() { return ('<html>'+document.getElementsByTagName('html')[0].innerHTML+'</html>'); })();";
     }
 
+    private val webViewMutex = Mutex()
     private var webViewUpdateJob: CompletableJob? = null
     private var fetchedHtml: String? = null
 
@@ -57,12 +60,14 @@ class WebViewScraper(context: Context) : Scraper {
     }
 
     override suspend fun getPageHtml(url: String): String? {
-        Log.d(TAG, "getPageHtml: $url")
-        webViewUpdateJob = Job()
-        Handler(Looper.getMainLooper()).post {
-            webView.loadUrl(url)
+        webViewMutex.withLock {
+            Log.d(TAG, "getPageHtml: $url")
+            webViewUpdateJob = Job()
+            Handler(Looper.getMainLooper()).post {
+                webView.loadUrl(url)
+            }
+            webViewUpdateJob!!.join()
+            return fetchedHtml
         }
-        webViewUpdateJob!!.join()
-        return fetchedHtml
     }
 }

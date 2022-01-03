@@ -65,10 +65,10 @@ fun NovelListScreen(yomiContext: YomiContext) {
         FloatingActionButton(onClick = {
             scope.launch {
 //                novelRepository.crawlNovelInfo(novel)
-                val chapterMeta = novelRepository.getNovel(1)?.chapters?.get(0)
-                if (chapterMeta != null) {
-                    novelRepository.downloadChapter(chapterMeta)
-                }
+//                val chapterMeta = novelRepository.getNovel(1)?.chapters?.get(0)
+//                if (chapterMeta != null) {
+//                    novelRepository.downloadChapter(chapterMeta)
+//                }
             }
         }) {
             Icon(

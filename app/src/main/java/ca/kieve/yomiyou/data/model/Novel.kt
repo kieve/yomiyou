@@ -6,6 +6,8 @@ import java.io.File
 
 data class Novel(
     val metadata: NovelMeta,
-    val coverFile: File?,
-    val chapters: List<ChapterMeta> = emptyList()
+    val chapters: List<ChapterMeta> = emptyList(),
+
+    val coverFile: File? = null,
+    val chapterFiles: Map<ChapterMeta, File> = emptyMap()
 )

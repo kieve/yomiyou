@@ -20,4 +20,7 @@ interface NovelDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertChapterMeta(chapterMetas: List<ChapterMeta>)
+
+    @Query("SELECT * FROM chapter_meta WHERE novel_id = :novelId ORDER BY id")
+    suspend fun getNovelChapters(novelId: Long): List<ChapterMeta>
 }
