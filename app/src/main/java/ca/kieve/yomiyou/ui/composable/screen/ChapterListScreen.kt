@@ -78,7 +78,7 @@ private fun ChapterList(
                     .fillMaxWidth()
                     .clickable {
                         navController.navigate(
-                            YomiScreen.ChapterNav.withArgs(
+                            YomiScreen.ReaderNav.withArgs(
                                 chapter.novelId.toString(),
                                 chapter.id.toString()
                             )

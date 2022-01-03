@@ -1,0 +1,34 @@
+- Turn these into issues in GitHub (maybe after the first POC is complete)
+- Fix LightNovelPub for novel searching (requires updating the WebViewScraper to interact with SPAs)
+- Implement novel searching UI
+- UI / User Feedback for downloading and updating chapters
+- Implement more sources!
+-----
+Parse bugs:
+
+---
+https://www.lightnovelpub.com/novel/omniscient-readers-viewpoint/265-chapter-67
+This html is rendered wrong:
+<p>–<i>Dokja-ssi, this person is perhaps…</i></p>
+
+It becomes:
+-
+
+Dokja-ssi, this person is perhaps…
+
+It should be:
+-*Dokja-ssi, this person is perhaps…*
+
+Likely, it's not parsing <i> as italics correctly atm.
+This bug is probably in markdown
+---
+
+
+---
+https://www.lightnovelpub.com/novel/the-perfect-run/1261-chapter-27
+This HTML broke the whole thing:
+<ul><li><em>Region of Campania, Italy, December 2008</em></li></ul>
+
+On the site, it's just used for emphasis (don't know why there's a UL anyways)
+But regardless, it shouldn't have put the rest of the content as a second bullet point.
+---

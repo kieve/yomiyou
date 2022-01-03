@@ -8,6 +8,7 @@ import ca.kieve.yomiyou.crawler.model.NovelInfo
 import ca.kieve.yomiyou.data.database.model.ChapterMeta
 import ca.kieve.yomiyou.data.database.model.NovelMeta
 import ca.kieve.yomiyou.data.model.Novel
+import ca.kieve.yomiyou.data.model.OpenChapter
 import ca.kieve.yomiyou.util.getTag
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -37,8 +38,8 @@ class NovelRepository(context: Context) {
     private val _novels: MutableStateFlow<MutableMap<Long, Novel>> = MutableStateFlow(hashMapOf())
     val novels: StateFlow<Map<Long, Novel>> = _novels
 
-    private val _openChapter: MutableStateFlow<String?> = MutableStateFlow(null)
-    val openChapter: StateFlow<String?> = _openChapter
+    private val _openNovel: MutableStateFlow<List<OpenChapter>> = MutableStateFlow(listOf())
+    val openNovel: StateFlow<List<OpenChapter>> = _openNovel
 
     init {
         ioScope.launch {
@@ -278,21 +279,47 @@ class NovelRepository(context: Context) {
         downloadCover(novelMeta)
     }
 
-    fun openChapter(novelId: Long, chapterId: Long) {
+    fun openNovel(novelId: Long) {
         ioScope.launch {
-            val chapterFile = getNovel(novelId)?.chapterFiles?.get(chapterId)
-            if (chapterFile == null || !chapterFile.exists()) {
-                Log.d(TAG, "FUCK the chapter file isn't there? $chapterFile")
-                _openChapter.value = "Isn't downloaded yet."
-            } else {
+            val allChapters = mutableListOf<OpenChapter>()
+            val novel = getNovel(novelId)
+            if (novel == null) {
+                Log.d(TAG, "openNovel: Novel shouldn't be null: $novelId")
+                _openNovel.value = allChapters
+                return@launch
+            }
+            for (chapterMeta in novel.chapters) {
+                val chapterFile = novel.chapterFiles[chapterMeta.id]
+                if (chapterFile == null || !chapterFile.exists()) {
+                    Log.d(TAG, "FUCK the chapter file isn't there? $chapterFile")
+                    allChapters.add(
+                        OpenChapter(
+                            chapterMeta = chapterMeta,
+                            content = "Isn't downloaded yet."
+                        )
+                    )
+                    continue
+                }
+
                 val text = chapterFile.readText()
                 if (text.isBlank()) {
                     Log.d(TAG, "FUCK It's BLANK: |$text|")
-                    _openChapter.value = "Chapter file is there, but it's blank ☹️"
+                    allChapters.add(
+                        OpenChapter(
+                            chapterMeta = chapterMeta,
+                            content = "Chapter file is there, but it's blank ☹️"
+                        )
+                    )
                 } else {
-                    _openChapter.value = chapterFile.readText()
+                    allChapters.add(
+                        OpenChapter(
+                            chapterMeta = chapterMeta,
+                            content = text
+                        )
+                    )
                 }
             }
+            _openNovel.value = allChapters
         }
     }
 }
