@@ -322,4 +322,10 @@ class NovelRepository(context: Context) {
             _openNovel.value = allChapters
         }
     }
+
+    fun searchForNewNovels(query: String) {
+        ioScope.launch {
+            Log.d(TAG, "searchForNovel: TODO $query")
+        }
+    }
 }

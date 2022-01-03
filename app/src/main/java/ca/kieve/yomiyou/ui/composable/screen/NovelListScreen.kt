@@ -9,11 +9,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.FabPosition
 import androidx.compose.material.FloatingActionButton
 import androidx.compose.material.Icon
+import androidx.compose.material.IconButton
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Scaffold
 import androidx.compose.material.Text
 import androidx.compose.material.TopAppBar
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -57,6 +59,19 @@ fun NovelListScreen(yomiContext: YomiContext) {
                 backgroundColor = MaterialTheme.colors.primary,
                 title = {
                     Text(stringResource(R.string.novelList_title))
+                },
+                actions = {
+                    IconButton(
+                        onClick = {
+                            navController.navigate(YomiScreen.NovelSearchNav.route)
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Search,
+                            contentDescription =
+                                    stringResource(R.string.novelList_searchContentDescription)
+                        )
+                    }
                 }
             )
     },
@@ -72,8 +87,9 @@ fun NovelListScreen(yomiContext: YomiContext) {
             }
         }) {
             Icon(
-                Icons.Filled.Warning,
-                "Debug")
+                imageVector = Icons.Filled.Warning,
+                contentDescription = "Debug"
+            )
         }
     }
     ) {

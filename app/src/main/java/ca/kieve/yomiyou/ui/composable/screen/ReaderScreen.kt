@@ -36,7 +36,7 @@ fun ReaderScreen(
 
     LaunchedEffect(true) {
         coroutineScope.launch {
-            listState.scrollToItem(index = chapterId.toInt())
+            listState.scrollToItem(index = chapterId.toInt() - 1)
         }
     }
 

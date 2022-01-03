@@ -4,10 +4,14 @@
     <!-- General strings -->
     <string name="yomi_shortChapterNum">Ch. %d</string>
 
-    <!--  Novel List Screen  -->
+    <!-- Novel List Screen -->
     <string name="novelList_title">Novel List</string>
+    <string name="novelList_searchContentDescription">Search for new Novels</string>
 
-    <!--  Chapter List Screen  -->
+    <!-- Novel Search Screen -->
+    <string name="novelSearch_placeholder">Novel Search</string>
+
+    <!-- Chapter List Screen -->
     <string name="chapterList_title">Chapter List: %s</string>
 
     <!-- Novel Card -->
