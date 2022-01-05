@@ -7,7 +7,7 @@ interface SourceCrawler {
 
     fun initCrawler(crawler: Crawler)
 
-    suspend fun searchNovel(crawler: Crawler, query: String): List<Map<String, String>>
+    suspend fun searchNovel(crawler: Crawler, query: String): List<NovelInfo>
     suspend fun readNovelInfo(crawler: Crawler): NovelInfo?
     suspend fun downloadChapterBody(crawler: Crawler, url: String): String
 }

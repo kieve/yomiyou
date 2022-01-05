@@ -17,14 +17,20 @@ import kotlinx.coroutines.sync.withLock
 import java.io.StringReader
 
 class WebViewScraper(context: Context) : Scraper {
+    private sealed class State {
+        object Default: State()
+        object LoadPage: State()
+    }
+
     companion object {
         private var TAG = getTag()
-        private const val GET_HTML_JSON = "(function() { return ('<html>'+document.getElementsByTagName('html')[0].innerHTML+'</html>'); })();";
+        private const val GET_HTML_JS = "(function() { return ('<html>'+document.getElementsByTagName('html')[0].innerHTML+'</html>'); })();"
     }
 
     private val webViewMutex = Mutex()
-    private var webViewUpdateJob: CompletableJob? = null
-    private var fetchedHtml: String? = null
+    private var state: State = State.Default
+    private var webViewUpdateJob: CompletableJob = Job()
+    private var javascriptResult: String? = null
 
     @SuppressLint("SetJavaScriptEnabled")
     val webView = WebView(context).apply {
@@ -42,32 +48,61 @@ class WebViewScraper(context: Context) : Scraper {
                 if (url == "about:blank") {
                     return
                 }
-                Log.d(TAG, "onPageFinished: $url")
-                view?.evaluateJavascript(GET_HTML_JSON) {
-                    val jsonReader = JsonReader(StringReader(it))
-                    jsonReader.isLenient = true
-                    if (jsonReader.peek() == JsonToken.STRING) {
-                        val domString = jsonReader.nextString()
-                        if (domString != null) {
-                            fetchedHtml = domString
-                            webViewUpdateJob!!.complete()
-                        }
-                    }
+                Log.d(TAG, "onPageFinished ($state): $url")
+                if (state == State.LoadPage) {
+                    internalExecuteJs(GET_HTML_JS)
                 }
             }
         }
         loadUrl("about:blank")
     }
 
-    override suspend fun getPageHtml(url: String): String? {
+    private fun internalExecuteJs(js: String) {
+        Handler(Looper.getMainLooper()).post {
+            webView.evaluateJavascript(js) { result ->
+                val jsonReader = JsonReader(StringReader(result))
+                jsonReader.isLenient = true
+                javascriptResult = if (jsonReader.peek() == JsonToken.STRING) {
+                    jsonReader.nextString()
+                } else {
+                    null
+                }
+                webViewUpdateJob.complete()
+            }
+        }
+    }
+
+    override suspend fun loadPage(url: String): String? {
         webViewMutex.withLock {
-            Log.d(TAG, "getPageHtml: $url")
+            Log.d(TAG, "loadPage: $url")
+            state = State.LoadPage
             webViewUpdateJob = Job()
             Handler(Looper.getMainLooper()).post {
                 webView.loadUrl(url)
             }
-            webViewUpdateJob!!.join()
-            return fetchedHtml
+            webViewUpdateJob.join()
+            state = State.Default
+            return javascriptResult
+        }
+    }
+
+    override suspend fun getCurrentPageHtml(): String? {
+        webViewMutex.withLock {
+            Log.d(TAG, "getCurrentPageHtml")
+            webViewUpdateJob = Job()
+            internalExecuteJs(GET_HTML_JS)
+            webViewUpdateJob.join()
+            return javascriptResult
+        }
+    }
+
+    override suspend fun executeJs(js: String): String? {
+        webViewMutex.withLock {
+            Log.d(TAG, "executeJs")
+            webViewUpdateJob = Job()
+            internalExecuteJs(js)
+            webViewUpdateJob.join()
+            return javascriptResult
         }
     }
 }

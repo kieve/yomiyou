@@ -1,8 +1,7 @@
 - Turn these into issues in GitHub (maybe after the first POC is complete)
-- Fix LightNovelPub for novel searching (requires updating the WebViewScraper to interact with SPAs)
-- Implement novel searching UI
+- Update search UI to allow adding a new novel to our list
 - UI / User Feedback for downloading and updating chapters
-- Implement more sources!
+- Implement more sources! (at least 3, so I can stop assuming there's only 1)
 -----
 Parse bugs:
 

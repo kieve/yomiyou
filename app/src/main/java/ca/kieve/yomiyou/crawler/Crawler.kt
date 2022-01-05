@@ -120,7 +120,7 @@ class Crawler(val scraper: Scraper) {
     }
 
     suspend fun getSoup(url: String): Document {
-        val html = scraper.getPageHtml(url)
+        val html = scraper.loadPage(url)
         return Jsoup.parse(html ?: "", url)
     }
 
@@ -148,6 +148,10 @@ class Crawler(val scraper: Scraper) {
             return null
         }
         return source.downloadChapterBody(this, chapterUrl)
+    }
+
+    suspend fun searchNovels(query: String): List<NovelInfo> {
+        return SOURCES[0].searchNovel(this, query)
     }
 
     fun absoluteUrl(_url: String = "", _pageUrl: String? = null): String {

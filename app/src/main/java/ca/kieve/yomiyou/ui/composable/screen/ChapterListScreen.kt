@@ -23,7 +23,6 @@ import ca.kieve.yomiyou.R
 import ca.kieve.yomiyou.YomiContext
 import ca.kieve.yomiyou.YomiScreen
 import ca.kieve.yomiyou.data.model.Novel
-import ca.kieve.yomiyou.data.repository.NovelRepository
 
 @Composable
 fun ChapterListScreen(
@@ -55,8 +54,7 @@ fun ChapterListScreen(
         } else {
             ChapterList(
                 navController = navController,
-                novel = novel,
-                novelRepository = novelRepository
+                novel = novel
             )
         }
     }
@@ -65,8 +63,7 @@ fun ChapterListScreen(
 @Composable
 private fun ChapterList(
     navController: NavController,
-    novel: Novel,
-    novelRepository: NovelRepository)
+    novel: Novel)
 {
     LazyColumn(
         modifier = Modifier.fillMaxWidth(),

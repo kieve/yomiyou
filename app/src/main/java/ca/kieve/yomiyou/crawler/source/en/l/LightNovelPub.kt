@@ -6,14 +6,22 @@ import ca.kieve.yomiyou.crawler.SourceCrawler
 import ca.kieve.yomiyou.crawler.model.ChapterInfo
 import ca.kieve.yomiyou.crawler.model.NovelInfo
 import ca.kieve.yomiyou.util.getTag
+import kotlinx.coroutines.delay
+import org.jsoup.Jsoup
 
 class LightNovelPub : SourceCrawler {
     companion object {
         private val TAG = getTag()
 
-        private const val NOVEL_SEARCH_FORMAT = "%s/search?title=%s"
         private const val CHAPTER_LIST_FORMAT = "%s/chapters/page-%d"
         private val PAGE_NUM_REGEX = """.*/page-(\d+).*""".toRegex()
+        private val SEARCH_JS = """
+            document.querySelector("#inputContent").value = "%s";
+            document.querySelector("#inputContent")
+                .dispatchEvent(new KeyboardEvent('keydown', { key: "a" }));
+            document.querySelector("#inputContent")
+                .dispatchEvent(new KeyboardEvent('keyup', { key: "a" }));
+            """.trimIndent()
 
         private val BAD_CSS = setOf(
             ".adsbox",
@@ -38,20 +46,41 @@ class LightNovelPub : SourceCrawler {
         )
     }
 
-    override suspend fun searchNovel(crawler: Crawler, query: String): List<Map<String, String>> {
-        val urlSafeQuery = query.lowercase().replace(' ', '+')
-        val soup = crawler.getSoup(
-            String.format(NOVEL_SEARCH_FORMAT, crawler.currentHomeUrl, urlSafeQuery))
+    override suspend fun searchNovel(crawler: Crawler, query: String): List<NovelInfo> {
+        val scraper = crawler.scraper
+        val url = baseUrls[0] + "search"
+        if (scraper.loadPage(url) == null) {
+            Log.d(TAG, "searchNovel: Failed to load search page.")
+            // TODO: Report error
+            return listOf()
+        }
 
-        val result: MutableList<Map<String, String>> = arrayListOf()
-        for (a in soup.select(".novel-list .novel-item a")) {
-            val possibleInfo = a.selectFirst(".novel-stats")
-            val info = possibleInfo?.text()?.trim()
+        // Obviously this is directly inserting user input to run as JS.
+        // But, it probably doesn't effect us, the user, or the site we're scraping.
+        // So, I don't care.
+        scraper.executeJs(SEARCH_JS.format(query))
+        delay(4000)
+        val html = scraper.getCurrentPageHtml()
+        if (html == null) {
+            Log.d(TAG, "searchNovel: Failed to get current page HTML")
+            return listOf()
+        }
+        val soup = Jsoup.parse(html, url)
 
-            val resultMap: MutableMap<String, String> = hashMapOf()
-            resultMap["title"] = a.attr("title").trim()
-            resultMap["url"] = a.attr("href")
-            resultMap["info"] = info ?: ""
+        val result: MutableList<NovelInfo> = mutableListOf()
+        for (a in soup.select("#novelListBase .novel-list .novel-item a")) {
+            val novelUrl = baseUrls[0] + a.attr("href").substring(1)
+            val title = a.attr("title").trim()
+
+            val coverImg = a.selectFirst("img")
+            val coverUrl = coverImg?.attr("src")?.replace(
+                regex = "\\d+x\\d+".toRegex(),
+                replacement = "300x400")
+            result.add(NovelInfo(
+                url = novelUrl,
+                title = title,
+                coverUrl = coverUrl
+            ))
         }
 
         return result

@@ -84,6 +84,7 @@ fun NovelListScreen(yomiContext: YomiContext) {
 //                if (chapterMeta != null) {
 //                    novelRepository.downloadChapter(chapterMeta)
 //                }
+//                novelRepository.searchForNewNovels("sword")
             }
         }) {
             Icon(
@@ -110,12 +111,15 @@ private fun NovelList(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         items(novelList) { novel ->
-            NovelCard(novel, Modifier
-                .clickable {
-                    navController.navigate(
-                        YomiScreen.ChapterListNav.withArgs(
-                            novel.metadata.id.toString()))
-                }
+            NovelCard(
+                novel = novel,
+                modifier = Modifier
+                    .clickable {
+                        navController.navigate(
+                            YomiScreen.ChapterListNav.withArgs(
+                                novel.metadata.id.toString())
+                        )
+                    }
             )
         }
     }

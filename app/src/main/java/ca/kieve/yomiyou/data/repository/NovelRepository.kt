@@ -9,6 +9,7 @@ import ca.kieve.yomiyou.data.database.model.ChapterMeta
 import ca.kieve.yomiyou.data.database.model.NovelMeta
 import ca.kieve.yomiyou.data.model.Novel
 import ca.kieve.yomiyou.data.model.OpenChapter
+import ca.kieve.yomiyou.data.model.SearchResult
 import ca.kieve.yomiyou.util.getTag
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -40,6 +41,13 @@ class NovelRepository(context: Context) {
 
     private val _openNovel: MutableStateFlow<List<OpenChapter>> = MutableStateFlow(listOf())
     val openNovel: StateFlow<List<OpenChapter>> = _openNovel
+
+    private val searchMutex = Mutex()
+    private val _searchResults: MutableStateFlow<Map<Int, SearchResult>> =
+        MutableStateFlow(hashMapOf())
+    val searchResults: StateFlow<Map<Int, SearchResult>> = _searchResults
+    private val _searchInProgress: MutableStateFlow<Boolean> = MutableStateFlow(false)
+    val searchInProgress: StateFlow<Boolean> = _searchInProgress
 
     init {
         ioScope.launch {
@@ -189,6 +197,51 @@ class NovelRepository(context: Context) {
         }
     }
 
+    private suspend fun downloadSearchCover(searchResult: SearchResult) =
+        withContext(Dispatchers.IO)
+    {
+        Log.d(TAG, "downloadSearchCover ${searchResult.novelInfo.title}")
+        val url = searchResult.novelInfo.coverUrl
+        if (url.isNullOrBlank()) {
+            Log.w(TAG, "downloadSearchCover: Cover URL is null")
+            return@withContext
+        }
+
+        val bytes = runCatching {
+            val coverUrl = URL(url)
+            coverUrl.openStream()
+                .buffered()
+                .readBytes()
+        }.onFailure { e ->
+            Log.e(TAG, "downloadSearchCover", e)
+        }.getOrNull()
+            ?: return@withContext
+
+        val fileExtension = url.substring(
+            url.lastIndexOf('.')
+        )
+
+        val coverFile = yomiFiles.writeSearchCover(searchResult.tempId, fileExtension, bytes)
+        if (coverFile == null || !coverFile.exists()) {
+            Log.w(TAG, "downloadCover: Cover failed to save")
+            return@withContext
+        }
+
+        searchMutex.withLock {
+            val result = _searchResults.value[searchResult.tempId]
+            if (result == null) {
+                Log.w(TAG, "downloadSearchCover: result to update is null")
+                return@withContext
+            }
+            val updatedSearchResult = result.copy(
+                coverFile = coverFile
+            )
+            _searchResults.value = (_searchResults.value
+                    + Pair(searchResult.tempId, updatedSearchResult)
+                    ).toMutableMap()
+        }
+    }
+
     private suspend fun downloadChapter(chapterMeta: ChapterMeta) = withContext(Dispatchers.IO) {
         val logId = "${chapterMeta.novelId},${chapterMeta.id}"
         if (yomiFiles.chapterExists(chapterMeta)) {
@@ -324,8 +377,27 @@ class NovelRepository(context: Context) {
     }
 
     fun searchForNewNovels(query: String) {
+        _searchInProgress.value = true
+        _searchResults.value = mutableMapOf()
         ioScope.launch {
-            Log.d(TAG, "searchForNovel: TODO $query")
+            yomiFiles.clearSearchCache()
+        }
+        ioScope.launch {
+            val novelInfoList = crawler.searchNovels(query)
+            searchMutex.withLock {
+                val result: Map<Int, SearchResult> = novelInfoList.mapIndexed { i, novelInfo ->
+                    val searchResult = SearchResult(
+                        tempId = i,
+                        novelInfo = novelInfo
+                    )
+                    launch {
+                        downloadSearchCover(searchResult)
+                    }
+                    i to searchResult
+                }.toMap()
+                _searchResults.value = result
+            }
+            _searchInProgress.value = false
         }
     }
 }
