@@ -30,7 +30,8 @@ class NovelRepository(context: Context) {
         private val TAG: String = getTag()
     }
 
-    private val ioScope = CoroutineScope(Job() + Dispatchers.IO)
+    private val ioScope = CoroutineScope(context = Job() + Dispatchers.IO)
+    private val defaultScope = CoroutineScope(context = Job() + Dispatchers.Default)
 
     private val appContainer = (context as YomiApplication).container
     private val yomiFiles = appContainer.files
@@ -58,7 +59,7 @@ class NovelRepository(context: Context) {
         }
     }
 
-    fun getNovel(id: Long): Novel? {
+    private fun getNovel(id: Long): Novel? {
         return _novels.value[id]
     }
 
@@ -330,10 +331,6 @@ class NovelRepository(context: Context) {
             coverUrl = novelInfo.coverUrl
         )
 
-        // TODO: Add to library when the user clicks "Add to library"
-        // val novelId = novelDao.upsertNovelMeta(novelMeta)
-        // novelDao.upsertChapterMeta(chapterList)
-
         val novel = Novel(
             inLibrary = false,
             metadata = novelMeta,
@@ -441,6 +438,48 @@ class NovelRepository(context: Context) {
                 _searchResults.value = result
             }
             _searchInProgress.value = false
+        }
+    }
+
+    fun addToLibrary(novelId: Long) {
+        defaultScope.launch {
+            novelMutex.withLock {
+                val novel = _novels.value[novelId]
+                    ?: return@launch
+
+                // Set metadata ID to generate DB id.
+                var novelMeta = novel.metadata.copy(
+                    id = 0
+                )
+                val newId = novelDao.upsertNovelMeta(novelMeta)
+                novelMeta = novelMeta.copy(
+                    id = newId
+                )
+
+                val chapters = novel.chapters
+                val newChapters = chapters.map { chapterMeta ->
+                    chapterMeta.copy(
+                        novelId = newId
+                    )
+                }
+                novelDao.upsertChapterMeta(newChapters)
+
+                val newCover =
+                    if (novel.coverFile == null)
+                        null
+                    else
+                        yomiFiles.migrateSearchCover(
+                            novelMeta = novelMeta,
+                            coverFile = novel.coverFile
+                        )
+
+                setNovel(Novel(
+                    inLibrary = true,
+                    metadata = novelMeta,
+                    chapters = newChapters,
+                    coverFile = newCover
+                ))
+            }
         }
     }
 }

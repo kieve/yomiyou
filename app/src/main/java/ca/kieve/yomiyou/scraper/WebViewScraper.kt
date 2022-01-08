@@ -48,7 +48,7 @@ class WebViewScraper(context: Context) : Scraper {
                 if (url == "about:blank") {
                     return
                 }
-                Log.d(TAG, "onPageFinished ($state): $url")
+                Log.d(TAG, "onPageFinished (${state.javaClass.simpleName}): $url")
                 if (state == State.LoadPage) {
                     internalExecuteJs(GET_HTML_JS)
                 }

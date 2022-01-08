@@ -100,6 +100,17 @@ class YomiFiles(context: Context) {
         return@withContext coverFile
     }
 
+    suspend fun migrateSearchCover(
+        novelMeta: NovelMeta,
+        coverFile: File
+    ): File = withContext(Dispatchers.IO)
+    {
+        val novelDir = getNovelDir(novelMeta)
+        val newFile = File(novelDir, "$NOVEL_COVER_FILE_NAME.${coverFile.extension}")
+        coverFile.copyTo(newFile)
+        return@withContext newFile
+    }
+
     suspend fun chapterExists(chapterMeta: ChapterMeta): Boolean = withContext(Dispatchers.IO) {
         return@withContext getChapterFile(chapterMeta) != null
     }

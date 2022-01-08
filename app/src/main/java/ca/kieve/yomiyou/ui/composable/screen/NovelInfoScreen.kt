@@ -1,6 +1,7 @@
 package ca.kieve.yomiyou.ui.composable.screen
 
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -24,7 +25,6 @@ import androidx.compose.material.IconButton
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Scaffold
 import androidx.compose.material.Text
-import androidx.compose.material.TopAppBar
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Favorite
@@ -32,10 +32,10 @@ import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -43,11 +43,9 @@ import androidx.navigation.NavController
 import ca.kieve.yomiyou.R
 import ca.kieve.yomiyou.YomiContext
 import ca.kieve.yomiyou.YomiScreen
-import ca.kieve.yomiyou.crawler.model.NovelInfo
 import ca.kieve.yomiyou.data.database.model.ChapterMeta
 import ca.kieve.yomiyou.data.model.Novel
 import ca.kieve.yomiyou.data.repository.NovelRepository
-import coil.compose.ImagePainter
 import coil.compose.rememberImagePainter
 
 @Composable
@@ -117,6 +115,7 @@ fun NovelInfo(
     novelRepository: NovelRepository,
     novel: Novel
 ) {
+    val context = LocalContext.current
     val title = novel.metadata.title
 
     Row(
@@ -145,7 +144,16 @@ fun NovelInfo(
             Spacer(modifier = Modifier.weight(1.0f))
             Button(
                 onClick = {
-                    Log.d("Yomi-FUCK", "NovelInfo: TODO")
+                    if (novel.inLibrary) {
+                        // TODO: Support removing novels
+                        Toast.makeText(
+                            context,
+                            "Not supported",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    } else {
+                        novelRepository.addToLibrary(novel.metadata.id)
+                    }
                 },
                 contentPadding = PaddingValues(
                     start = 20.dp,

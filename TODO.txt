@@ -1,6 +1,9 @@
 - Turn these into issues in GitHub (maybe after the first POC is complete)
-- Update search UI to allow adding a new novel to our list
 - Priority Queue / Jobs for scraping.
+- Refactor novel / search system.
+    - Using negative IDs is wack
+    - Treat all novels the same
+    - Cached novels will indeed be saved in the DB, but regularly purged if not added to the library
 - UI / User Feedback for downloading and updating chapters
 - Implement more sources! (at least 3, so I can stop assuming there's only 1)
 - Theme the app
