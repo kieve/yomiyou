@@ -7,7 +7,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import ca.kieve.yomiyou.data.AppContainer
-import ca.kieve.yomiyou.ui.composable.screen.ChapterListScreen
+import ca.kieve.yomiyou.ui.composable.screen.NovelInfoScreen
 import ca.kieve.yomiyou.ui.composable.screen.ReaderScreen
 import ca.kieve.yomiyou.ui.composable.screen.NovelListScreen
 import ca.kieve.yomiyou.ui.composable.screen.NovelSearchScreen
@@ -27,14 +27,14 @@ fun YomiNavigation(appContainer: AppContainer) {
             NovelSearchScreen(yomiContext)
         }
         composable(
-            route = YomiScreen.ChapterListNav.route + "/{novelId}",
+            route = YomiScreen.NovelInfoNav.route + "/{novelId}",
             arguments = listOf(
                 navArgument("novelId") {
                     type = NavType.LongType
                 }
             )
         ) { entry ->
-            ChapterListScreen(
+            NovelInfoScreen(
                 yomiContext = yomiContext,
                 novelId = entry.arguments?.getLong("novelId") ?: 0
             )

@@ -4,7 +4,6 @@ import android.content.Context
 import android.util.Log
 import ca.kieve.yomiyou.data.database.model.ChapterMeta
 import ca.kieve.yomiyou.data.database.model.NovelMeta
-import ca.kieve.yomiyou.data.model.SearchResult
 import ca.kieve.yomiyou.util.ensureDirExists
 import ca.kieve.yomiyou.util.getTag
 import kotlinx.coroutines.Dispatchers
@@ -82,7 +81,7 @@ class YomiFiles(context: Context) {
     }
 
     suspend fun writeSearchCover(
-        tempId: Int,
+        tempId: Long,
         extension: String,
         bytes: ByteArray
     ): File? = withContext(Dispatchers.IO)

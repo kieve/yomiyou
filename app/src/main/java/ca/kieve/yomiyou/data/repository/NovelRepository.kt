@@ -20,8 +20,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.lang.IllegalStateException
 import java.net.URL
+import java.util.concurrent.atomic.AtomicLong
 
 class NovelRepository(context: Context) {
     companion object {
@@ -35,6 +37,7 @@ class NovelRepository(context: Context) {
     private val novelDao = appContainer.database.novelDao()
     private val crawler = appContainer.crawler
 
+    private val memoryNovelId = AtomicLong(-1)
     private val novelMutex = Mutex()
     private val _novels: MutableStateFlow<MutableMap<Long, Novel>> = MutableStateFlow(hashMapOf())
     val novels: StateFlow<Map<Long, Novel>> = _novels
@@ -43,22 +46,15 @@ class NovelRepository(context: Context) {
     val openNovel: StateFlow<List<OpenChapter>> = _openNovel
 
     private val searchMutex = Mutex()
-    private val _searchResults: MutableStateFlow<Map<Int, SearchResult>> =
+    private val _searchResults: MutableStateFlow<Map<Long, SearchResult>> =
         MutableStateFlow(hashMapOf())
-    val searchResults: StateFlow<Map<Int, SearchResult>> = _searchResults
+    val searchResults: StateFlow<Map<Long, SearchResult>> = _searchResults
     private val _searchInProgress: MutableStateFlow<Boolean> = MutableStateFlow(false)
     val searchInProgress: StateFlow<Boolean> = _searchInProgress
 
     init {
         ioScope.launch {
             loadNovels()
-        }
-    }
-
-    fun debugPrint(chapterMeta: ChapterMeta) {
-        ioScope.launch {
-            val novel = getNovel(chapterMeta.novelId)
-            Log.d(TAG, novel?.chapterFiles?.get(chapterMeta.id)?.readText() ?: "It's null")
         }
     }
 
@@ -89,6 +85,7 @@ class NovelRepository(context: Context) {
         for (novelMeta in novelMetas) {
             novelMutex.withLock {
                 setNovel(Novel(
+                    inLibrary = true,
                     metadata = novelMeta
                 ))
             }
@@ -250,7 +247,6 @@ class NovelRepository(context: Context) {
         }
         Log.d(TAG, "downloadChapter: $logId")
 
-        crawler.initCrawl(chapterMeta.url)
         val content = crawler.downloadChapter(chapterMeta.url)
 
         val markdown = if (content != null) {
@@ -280,56 +276,83 @@ class NovelRepository(context: Context) {
         }
     }
 
-    suspend fun crawlNovelInfo(url: String) = withContext(Dispatchers.IO) {
+    // TODO: I think this can be removed, as it will be the search workflow that add it.
+    suspend fun downloadNovelInfo(url: String) = withContext(Dispatchers.IO) {
         // First, see if we already have this novel.
-        for (novel in novels.value.values) {
-            if (novel.metadata.url == url) {
-                // TODO update chapter list
-                Log.d(TAG, "crawlNovelInfo: Already have this novel. Updates not implemented")
-                return@withContext
-            }
-        }
-        crawler.initCrawl(url)
-        val novelInfo = crawler.crawl(url)
-        Log.d(TAG, "Crawled novel: $novelInfo")
-        if (novelInfo == null) {
-            return@withContext
-        }
-
-        addNovel(novelInfo)
+//        for (novel in novels.value.values) {
+//            if (novel.metadata.url == url) {
+//                // TODO update chapter list
+//                Log.d(TAG, "crawlNovelInfo: Already have this novel. Updates not implemented")
+//                return@withContext
+//            }
+//        }
+//
+//        val novelInfo = crawler.getNovelInfo(url)
+//        Log.d(TAG, "Crawled novel: $novelInfo")
+//        if (novelInfo == null) {
+//            return@withContext
+//        }
+//
+//        addNovel(novelInfo)
     }
 
-    private suspend fun addNovel(novelInfo: NovelInfo) {
+    private suspend fun downloadChapterInfo(novelMeta: NovelMeta) = withContext(Dispatchers.IO) {
+        val chapterInfo = crawler.getChapterInfo(novelMeta.url)
+        val chapterList = chapterInfo.map { info ->
+            ChapterMeta(
+                id = info.id,
+                novelId = novelMeta.id,
+                title = info.title,
+                url = info.url
+            )
+        }
+        novelMutex.withLock {
+            val novel = getNovel(novelMeta.id) ?: return@withContext
+            setNovel(
+                novel.copy(
+                    chapters = chapterList
+                )
+            )
+        }
+    }
+
+    private suspend fun addNovel(id: Long, novelInfo: NovelInfo, coverFile: File? = null): Novel? {
         val title = novelInfo.title
         if (title.isNullOrBlank()) {
             Log.e(TAG, "addNovel: failed. $novelInfo")
-            return
+            return null
         }
         val novelMeta = NovelMeta(
+            id = id,
             title = title,
             url = novelInfo.url,
             author = novelInfo.author,
             coverUrl = novelInfo.coverUrl
         )
-        val novelId = novelDao.upsertNovelMeta(novelMeta)
 
-        val chapterList = novelInfo.chapters.map {
-            ChapterMeta(
-                id = it.id,
-                novelId = novelId,
-                title = it.title,
-                url = it.url
-            )
-        }
-        novelDao.upsertChapterMeta(chapterList)
-        setNovel(Novel(
+        // TODO: Add to library when the user clicks "Add to library"
+        // val novelId = novelDao.upsertNovelMeta(novelMeta)
+        // novelDao.upsertChapterMeta(chapterList)
+
+        val novel = Novel(
+            inLibrary = false,
             metadata = novelMeta,
-            coverFile = null,
-            chapters = chapterList)
+            coverFile = coverFile
         )
-        Log.d(TAG, "Added novel and saved chapters to DB")
+        novelMutex.withLock {
+            setNovel(novel)
+        }
+        Log.d(TAG, "Added novel")
 
-        downloadCover(novelMeta)
+        if (coverFile == null) {
+            ioScope.launch {
+                downloadCover(novelMeta)
+            }
+        }
+        ioScope.launch {
+            downloadChapterInfo(novelMeta)
+        }
+        return novel
     }
 
     fun openNovel(novelId: Long) {
@@ -385,15 +408,35 @@ class NovelRepository(context: Context) {
         ioScope.launch {
             val novelInfoList = crawler.searchNovels(query)
             searchMutex.withLock {
-                val result: Map<Int, SearchResult> = novelInfoList.mapIndexed { i, novelInfo ->
-                    val searchResult = SearchResult(
-                        tempId = i,
-                        novelInfo = novelInfo
-                    )
-                    launch {
-                        downloadSearchCover(searchResult)
+                val result: Map<Long, SearchResult> = novelInfoList.map { novelInfo ->
+                    var existingNovel: Novel? = null
+                    for (novel in _novels.value.values) {
+                        if (novel.metadata.url == novelInfo.url) {
+                            // It's in the library already
+                            existingNovel = novel
+                            break
+                        }
                     }
-                    i to searchResult
+                    val tempId = existingNovel?.metadata?.id
+                        ?: memoryNovelId.getAndDecrement()
+
+                    val searchResult = SearchResult(
+                        tempId = tempId,
+                        novelInfo = novelInfo,
+                        coverFile = existingNovel?.coverFile
+                    )
+                    if (existingNovel == null) {
+                        launch {
+                            downloadSearchCover(searchResult)
+                            val updated = _searchResults.value[searchResult.tempId]
+                            addNovel(
+                                id = tempId,
+                                novelInfo = novelInfo,
+                                coverFile = updated?.coverFile
+                            )
+                        }
+                    }
+                    tempId to searchResult
                 }.toMap()
                 _searchResults.value = result
             }

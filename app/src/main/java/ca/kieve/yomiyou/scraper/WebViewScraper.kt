@@ -87,13 +87,8 @@ class WebViewScraper(context: Context) : Scraper {
     }
 
     override suspend fun getCurrentPageHtml(): String? {
-        webViewMutex.withLock {
-            Log.d(TAG, "getCurrentPageHtml")
-            webViewUpdateJob = Job()
-            internalExecuteJs(GET_HTML_JS)
-            webViewUpdateJob.join()
-            return javascriptResult
-        }
+        Log.d(TAG, "getCurrentPageHtml")
+        return executeJs(GET_HTML_JS)
     }
 
     override suspend fun executeJs(js: String): String? {

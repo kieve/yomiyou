@@ -4,7 +4,7 @@ import ca.kieve.yomiyou.crawler.model.NovelInfo
 import java.io.File
 
 data class SearchResult(
-    val tempId: Int,
+    val tempId: Long,
     val novelInfo: NovelInfo,
     val coverFile: File? = null
 )

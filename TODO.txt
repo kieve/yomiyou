@@ -1,7 +1,9 @@
 - Turn these into issues in GitHub (maybe after the first POC is complete)
 - Update search UI to allow adding a new novel to our list
+- Priority Queue / Jobs for scraping.
 - UI / User Feedback for downloading and updating chapters
 - Implement more sources! (at least 3, so I can stop assuming there's only 1)
+- Theme the app
 -----
 Parse bugs:
 

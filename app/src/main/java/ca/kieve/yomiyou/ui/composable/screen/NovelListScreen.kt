@@ -101,10 +101,13 @@ fun NovelListScreen(yomiContext: YomiContext) {
 @Composable
 private fun NovelList(
     navController: NavController,
-    novelRepository: NovelRepository)
-{
+    novelRepository: NovelRepository
+) {
     val novels by novelRepository.novels.collectAsState()
-    val novelList = novels.values.toList()
+    val novelList = novels.values
+        .filter { novel -> novel.inLibrary }
+        .toList()
+
     LazyColumn(
         modifier = Modifier.fillMaxWidth(),
         contentPadding = PaddingValues(16.dp),
@@ -116,7 +119,7 @@ private fun NovelList(
                 modifier = Modifier
                     .clickable {
                         navController.navigate(
-                            YomiScreen.ChapterListNav.withArgs(
+                            YomiScreen.NovelInfoNav.withArgs(
                                 novel.metadata.id.toString())
                         )
                     }

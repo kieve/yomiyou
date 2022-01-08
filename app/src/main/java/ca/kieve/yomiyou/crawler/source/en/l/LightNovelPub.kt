@@ -86,31 +86,36 @@ class LightNovelPub : SourceCrawler {
         return result
     }
 
-    override suspend fun readNovelInfo(crawler: Crawler): NovelInfo? {
-        Log.d(TAG, "readNovelInfo: ${crawler.currentNovelUrl}")
+    override suspend fun getNovelInfo(crawler: Crawler): NovelInfo? {
+        Log.d(TAG, "getNovelInfo: ${crawler.currentNovelUrl}")
         val novelUrl = crawler.currentNovelUrl ?: return null
 
         val result = NovelInfo(novelUrl)
 
-        var soup = crawler.getSoup(novelUrl)
+        val soup = crawler.getSoup(novelUrl)
         val possibleTitle = soup.selectFirst(".novel-info .novel-title")
         result.title = possibleTitle?.text()?.trim() ?: ""
-        Log.d(TAG, "readNovelInfo: Novel title: ${result.title}")
+        Log.d(TAG, "getNovelInfo: Novel title: ${result.title}")
 
         val possibleImage = soup.selectFirst(".glass-background img")
         result.coverUrl =
                 if (possibleImage != null)
                     crawler.absoluteUrl(possibleImage.attr("src"))
                 else ""
-        Log.d(TAG, "readNovelInfo: Novel cover: ${result.coverUrl}")
+        Log.d(TAG, "getNovelInfo: Novel cover: ${result.coverUrl}")
 
         val possibleAuthor = soup.selectFirst(".author a[href*=\"/author/\"]")
         result.author = possibleAuthor?.select("span")?.text() ?: ""
-        Log.d(TAG, "readNovelInfo: Novel author: ${result.author}")
+        Log.d(TAG, "getNovelInfo: Novel author: ${result.author}")
 
-        Log.d(TAG, "readNovelInfo: Getting chapters...")
+        return result;
+    }
 
-        soup = crawler.getSoup(String.format(CHAPTER_LIST_FORMAT, novelUrl, 1))
+    override suspend fun getNovelChapterList(crawler: Crawler): List<ChapterInfo> {
+        Log.d(TAG, "getNovelChapterList")
+        val novelUrl = crawler.currentNovelUrl ?: return listOf()
+
+        val soup = crawler.getSoup(String.format(CHAPTER_LIST_FORMAT, novelUrl, 1))
         var lastPage = soup.selectFirst(".PagedList-skipToLast a")
         if (lastPage == null) {
             val paginationElements = soup.select(".pagination li")
@@ -121,27 +126,27 @@ class LightNovelPub : SourceCrawler {
             }
         }
         val pageCount =
-                if (lastPage != null)
-                    PAGE_NUM_REGEX.matchEntire(lastPage.toString())
-                            ?.groups?.get(1)?.value?.toInt()
-                            ?: 0
-                else 0
+            if (lastPage != null)
+                PAGE_NUM_REGEX.matchEntire(lastPage.toString())
+                    ?.groups?.get(1)?.value?.toInt()
+                    ?: 0
+            else 0
         val soups = listOf(soup) + (2 .. pageCount).map {
             crawler.getSoup(String.format(CHAPTER_LIST_FORMAT, novelUrl, it))
         }
 
+        val result: MutableList<ChapterInfo> = arrayListOf()
         for (subSoup in soups) {
             for (a in subSoup.select("ul.chapter-list li a")) {
-                result.chapters.add(ChapterInfo(
-                    id = result.chapters.size + 1.toLong(),
+                result.add(ChapterInfo(
+                    id = result.size + 1.toLong(),
                     url = crawler.absoluteUrl(a.attr("href")),
                     title = a.select(".chapter-title").text())
                 )
             }
         }
 
-        Log.d(TAG, "$result")
-        return result;
+        return result
     }
 
     override suspend fun downloadChapterBody(crawler: Crawler, url: String): String {

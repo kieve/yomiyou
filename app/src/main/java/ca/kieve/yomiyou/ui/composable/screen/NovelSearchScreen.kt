@@ -1,5 +1,6 @@
 package ca.kieve.yomiyou.ui.composable.screen
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -23,14 +24,17 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavController
 import ca.kieve.yomiyou.R
 import ca.kieve.yomiyou.YomiContext
+import ca.kieve.yomiyou.YomiScreen
 import ca.kieve.yomiyou.data.repository.NovelRepository
 import ca.kieve.yomiyou.ui.composable.NovelCard
 import ca.kieve.yomiyou.util.clearFocusOnKeyboardDismiss
 
 @Composable
 fun NovelSearchScreen(yomiContext: YomiContext) {
+    val navController = yomiContext.navController
     val novelRepository = yomiContext.appContainer.novelRepository
 
     val searchInProgress by novelRepository.searchInProgress.collectAsState()
@@ -40,7 +44,10 @@ fun NovelSearchScreen(yomiContext: YomiContext) {
         if (searchInProgress) {
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         } else {
-            SearchResults(novelRepository)
+            SearchResults(
+                navController = navController,
+                novelRepository = novelRepository
+            )
         }
     }
 }
@@ -83,7 +90,10 @@ private fun SearchBar(novelRepository: NovelRepository) {
 }
 
 @Composable
-private fun SearchResults(novelRepository: NovelRepository) {
+private fun SearchResults(
+    navController: NavController,
+    novelRepository: NovelRepository
+) {
     val results by novelRepository.searchResults.collectAsState()
 
     LazyColumn(
@@ -95,7 +105,15 @@ private fun SearchResults(novelRepository: NovelRepository) {
             NovelCard(
                 title = novelInfo.novelInfo.title ?: "Unknown Novel",
                 subTitle = "TODO",
-                coverFile = novelInfo.coverFile
+                coverFile = novelInfo.coverFile,
+                modifier = Modifier
+                    .clickable {
+                        navController.navigate(
+                            YomiScreen.NovelInfoNav.withArgs(
+                                novelInfo.tempId.toString()
+                            )
+                        )
+                    }
             )
         }
     }

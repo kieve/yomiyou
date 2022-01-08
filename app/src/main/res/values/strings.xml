@@ -4,6 +4,8 @@
     <!-- General strings -->
     <string name="yomi_shortChapterNum">Ch. %d</string>
 
+    <string name="yomi_backContentDescription">Back</string>
+
     <!-- Novel List Screen -->
     <string name="novelList_title">Novel List</string>
     <string name="novelList_searchContentDescription">Search for new Novels</string>
@@ -11,8 +13,12 @@
     <!-- Novel Search Screen -->
     <string name="novelSearch_placeholder">Novel Search</string>
 
-    <!-- Chapter List Screen -->
-    <string name="chapterList_title">Chapter List: %s</string>
+    <!-- Novel Info Screen -->
+    <string name="novelInfo_add">Add</string>
+    <string name="novelInfo_addContentDescription">Add to Library</string>
+
+    <string name="novelInfo_remove">Remove</string>
+    <string name="novelInfo_removeContentDescription">Remove from Library</string>
 
     <!-- Novel Card -->
     <string name="novelCard_imageContentDescription">Cover image for the novel titled %s</string>

@@ -1,6 +1,7 @@
 package ca.kieve.yomiyou.crawler
 
 import android.icu.text.UnicodeSet
+import ca.kieve.yomiyou.crawler.model.ChapterInfo
 import ca.kieve.yomiyou.crawler.model.NovelInfo
 import ca.kieve.yomiyou.crawler.source.en.l.LightNovelPub
 import ca.kieve.yomiyou.scraper.Scraper
@@ -21,7 +22,6 @@ data class HtmlFilter(
 
 class Crawler(val scraper: Scraper) {
     companion object {
-        private const val USER_AGENT_FALLBACK = "Mozilla/5.0 (Linux; Android 6.0.1; SM-G920V Build/MMB29K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.98 Mobile Safari/537.36"
         private const val LINE_SEP = "<br>"
         private val INVISIBLE_CHARS = UnicodeSet("[\\p{Cf}\\p{Cc}]")
         private val NON_PRINTABLE_CHARS = UnicodeSet(INVISIBLE_CHARS)
@@ -94,7 +94,7 @@ class Crawler(val scraper: Scraper) {
     // Intended to be modified by SourceCrawlers
     var currentFilter: HtmlFilter = DEFAULT_FILTER
 
-    fun initCrawl(url: String): Boolean {
+    private fun initSource(url: String): Boolean {
         // Reset our filter, since it might have been changed by the previous source
         currentFilter = DEFAULT_FILTER
 
@@ -105,18 +105,26 @@ class Crawler(val scraper: Scraper) {
 
         // TODO: Build a trie mapping the baseUrls to their sources. Then here, we can search for
         //       this URL in the trie and select the deepest matching source crawler.
-        root@for (sourceCrawler in SOURCES) {
+        for (sourceCrawler in SOURCES) {
             for (baseUrl in sourceCrawler.baseUrls) {
                 if (url.startsWith(baseUrl)) {
                     currentSource = sourceCrawler
                     currentHomeUrl = baseUrl
-                    sourceCrawler.initCrawler(this)
-                    break@root
+                    return true
                 }
             }
         }
 
-        return currentSource != null
+        return false
+    }
+
+    private fun verifySource(url: String): Boolean {
+        val source = currentSource
+        val homeUrl = currentHomeUrl
+
+        return source != null
+                && homeUrl != null
+                && url.startsWith(homeUrl)
     }
 
     suspend fun getSoup(url: String): Document {
@@ -124,30 +132,30 @@ class Crawler(val scraper: Scraper) {
         return Jsoup.parse(html ?: "", url)
     }
 
-    suspend fun crawl(novelUrl: String): NovelInfo? {
-        val source = currentSource
-        val homeUrl = currentHomeUrl
-        if (source == null
-            || homeUrl == null
-            || !novelUrl.startsWith(homeUrl))
-        {
+    suspend fun getNovelInfo(novelUrl: String): NovelInfo? {
+        if (!initSource(novelUrl)) {
             return null
         }
-        currentNovelUrl = novelUrl
 
-        return source.readNovelInfo(this)
+        currentNovelUrl = novelUrl
+        return currentSource?.getNovelInfo(this)
+    }
+
+    suspend fun getChapterInfo(novelUrl: String): List<ChapterInfo> {
+        if (!initSource(novelUrl)) {
+            return emptyList()
+        }
+
+        currentNovelUrl = novelUrl
+        return currentSource?.getNovelChapterList(this) ?: emptyList()
     }
 
     suspend fun downloadChapter(chapterUrl: String): String? {
-        val source = currentSource
-        val homeUrl = currentHomeUrl
-        if (source == null
-            || homeUrl == null
-            || !chapterUrl.startsWith(homeUrl))
-        {
+        if (!initSource(chapterUrl)) {
             return null
         }
-        return source.downloadChapterBody(this, chapterUrl)
+
+        return currentSource?.downloadChapterBody(this, chapterUrl)
     }
 
     suspend fun searchNovels(query: String): List<NovelInfo> {
