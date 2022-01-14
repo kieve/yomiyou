@@ -1,6 +1,5 @@
 package ca.kieve.yomiyou.ui.composable.screen
 
-import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -30,6 +29,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -43,9 +43,9 @@ import androidx.navigation.NavController
 import ca.kieve.yomiyou.R
 import ca.kieve.yomiyou.YomiContext
 import ca.kieve.yomiyou.YomiScreen
+import ca.kieve.yomiyou.data.NovelRepository
 import ca.kieve.yomiyou.data.database.model.ChapterMeta
 import ca.kieve.yomiyou.data.model.Novel
-import ca.kieve.yomiyou.data.repository.NovelRepository
 import coil.compose.rememberImagePainter
 
 @Composable
@@ -55,6 +55,11 @@ fun NovelInfoScreen(
 ) {
     val navController = yomiContext.navController
     val novelRepository = yomiContext.appContainer.novelRepository
+    val scheduler = yomiContext.appContainer.novelScheduler
+
+    LaunchedEffect(Unit) {
+        scheduler.setActiveNovel(novelId)
+    }
 
     val novels by novelRepository.novels.collectAsState()
     val novel = novels[novelId]

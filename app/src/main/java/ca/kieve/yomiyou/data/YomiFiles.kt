@@ -33,6 +33,10 @@ class YomiFiles(context: Context) {
         return novelDir
     }
 
+    suspend fun clearSearchCache() = withContext(Dispatchers.IO) {
+        searchCache.delete()
+    }
+
     suspend fun getNovelCoverFile(novelMeta: NovelMeta): File? = withContext(Dispatchers.IO) {
         val novelDir = getNovelDir(novelMeta)
         if (!novelDir.exists()) {
@@ -74,10 +78,6 @@ class YomiFiles(context: Context) {
             return@withContext null
         }
         return@withContext coverFile
-    }
-
-    suspend fun clearSearchCache() = withContext(Dispatchers.IO) {
-        searchCache.delete()
     }
 
     suspend fun writeSearchCover(

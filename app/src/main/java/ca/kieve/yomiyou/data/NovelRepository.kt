@@ -1,4 +1,4 @@
-package ca.kieve.yomiyou.data.repository
+package ca.kieve.yomiyou.data
 
 import android.content.Context
 import android.util.Log
@@ -9,7 +9,9 @@ import ca.kieve.yomiyou.data.database.model.ChapterMeta
 import ca.kieve.yomiyou.data.database.model.NovelMeta
 import ca.kieve.yomiyou.data.model.Novel
 import ca.kieve.yomiyou.data.model.OpenChapter
-import ca.kieve.yomiyou.data.model.SearchResult
+import ca.kieve.yomiyou.data.scheduler.DownloadChapterInfoJob
+import ca.kieve.yomiyou.data.scheduler.DownloadNovelInfoJob
+import ca.kieve.yomiyou.data.scheduler.NovelScheduler
 import ca.kieve.yomiyou.util.getTag
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -20,8 +22,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import java.io.File
-import java.lang.IllegalStateException
 import java.net.URL
 import java.util.concurrent.atomic.AtomicLong
 
@@ -36,6 +36,7 @@ class NovelRepository(context: Context) {
     private val appContainer = (context as YomiApplication).container
     private val yomiFiles = appContainer.files
     private val novelDao = appContainer.database.novelDao()
+    private val scheduler: NovelScheduler get() { return appContainer.novelScheduler }
     private val crawler = appContainer.crawler
 
     private val memoryNovelId = AtomicLong(-1)
@@ -47,9 +48,8 @@ class NovelRepository(context: Context) {
     val openNovel: StateFlow<List<OpenChapter>> = _openNovel
 
     private val searchMutex = Mutex()
-    private val _searchResults: MutableStateFlow<Map<Long, SearchResult>> =
-        MutableStateFlow(hashMapOf())
-    val searchResults: StateFlow<Map<Long, SearchResult>> = _searchResults
+    private val _searchResults: MutableStateFlow<Set<Long>> = MutableStateFlow(hashSetOf())
+    val searchResults: StateFlow<Set<Long>> = _searchResults
     private val _searchInProgress: MutableStateFlow<Boolean> = MutableStateFlow(false)
     val searchInProgress: StateFlow<Boolean> = _searchInProgress
 
@@ -59,26 +59,24 @@ class NovelRepository(context: Context) {
         }
     }
 
-    private fun getNovel(id: Long): Novel? {
-        return _novels.value[id]
-    }
-
-    fun getChapter(novelId: Long, chapterId: Long): ChapterMeta? {
-        // TODO: Maybe make a map for this
-        val novel = getNovel(novelId) ?: return null
-        for (chapterMeta in novel.chapters) {
-            if (chapterMeta.id == chapterId) {
-                return chapterMeta
-            }
-        }
-        return null
-    }
-
     private fun setNovel(novel: Novel) {
         if (!novelMutex.isLocked) {
             throw IllegalStateException("Novel mutex lock must be held to update.")
         }
         _novels.value = (_novels.value + Pair(novel.metadata.id, novel)).toMutableMap()
+    }
+
+    private fun getNovel(id: Long): Novel? {
+        return _novels.value[id]
+    }
+
+    private fun getNovel(url: String): Novel? {
+        for (novel in _novels.value.values) {
+            if (novel.metadata.url == url) {
+                return novel
+            }
+        }
+        return null
     }
 
     private suspend fun loadNovels() = withContext(Dispatchers.IO) {
@@ -156,6 +154,81 @@ class NovelRepository(context: Context) {
         downloadChapter(chapterMeta)
     }
 
+    suspend fun onJobComplete(job: DownloadNovelInfoJob) {
+        val result = job.result ?: return
+        Log.d(TAG, "DownloadNovelInfoJob complete: ${result.title}")
+
+        novelMutex.withLock {
+            val novel = getNovel(job.novel.metadata.id)
+            if (novel == null) {
+                Log.d(TAG, "Novel is missing after Downloading Novel Info")
+                return@withLock
+            }
+
+            var anyChange = false
+            var metadata = novel.metadata
+
+            val title = result.title
+            if (title != null && metadata.title != title) {
+                anyChange = true
+                metadata = metadata.copy(
+                    title = title
+                )
+            }
+
+            val author = result.author
+            if (author != null && metadata.author != author) {
+                anyChange = true
+                metadata = metadata.copy(
+                    author = author
+                )
+            }
+
+            var downloadCover = false
+            val coverUrl = result.coverUrl
+            if (coverUrl != null && metadata.coverUrl != coverUrl) {
+                anyChange = true
+                downloadCover = true
+                metadata = metadata.copy(
+                    coverUrl = coverUrl
+                )
+            }
+
+            var updatedNovel = novel
+            if (anyChange) {
+                updatedNovel = novel.copy(
+                    metadata = metadata
+                )
+                setNovel(updatedNovel)
+            }
+            if (downloadCover) {
+                downloadCover(updatedNovel.metadata)
+            }
+        }
+    }
+
+    suspend fun onJobComplete(job: DownloadChapterInfoJob) {
+        val result = job.result ?: return
+        Log.d(TAG, "DownloadChapterInfoJob complete: ${job.novel.metadata.title}")
+
+        val chapterList = result.map { info ->
+            ChapterMeta(
+                id = info.id,
+                novelId = job.novel.metadata.id,
+                title = info.title,
+                url = info.url
+            )
+        }
+        novelMutex.withLock {
+            val novel = getNovel(job.novel.metadata.id) ?: return
+            setNovel(
+                novel.copy(
+                    chapters = chapterList
+                )
+            )
+        }
+    }
+
     private suspend fun downloadCover(novelMeta: NovelMeta) = withContext(Dispatchers.IO) {
         Log.d(TAG, "downloadCover ${novelMeta.title}")
         if (novelMeta.coverUrl.isNullOrBlank()) {
@@ -177,7 +250,13 @@ class NovelRepository(context: Context) {
             novelMeta.coverUrl.lastIndexOf('.')
         )
 
-        val coverFile = yomiFiles.writeNovelCover(novelMeta, fileExtension, bytes)
+        val coverFile = if (novelMeta.id < 0) {
+            // This is a search / temp novel, so store it appropriately
+            yomiFiles.writeSearchCover(novelMeta.id, fileExtension, bytes)
+        } else {
+            yomiFiles.writeNovelCover(novelMeta, fileExtension, bytes)
+        }
+
         if (coverFile == null || !coverFile.exists()) {
             Log.w(TAG, "downloadCover: Cover failed to save")
             return@withContext
@@ -192,51 +271,6 @@ class NovelRepository(context: Context) {
             setNovel(novel.copy(
                 coverFile = coverFile
             ))
-        }
-    }
-
-    private suspend fun downloadSearchCover(searchResult: SearchResult) =
-        withContext(Dispatchers.IO)
-    {
-        Log.d(TAG, "downloadSearchCover ${searchResult.novelInfo.title}")
-        val url = searchResult.novelInfo.coverUrl
-        if (url.isNullOrBlank()) {
-            Log.w(TAG, "downloadSearchCover: Cover URL is null")
-            return@withContext
-        }
-
-        val bytes = runCatching {
-            val coverUrl = URL(url)
-            coverUrl.openStream()
-                .buffered()
-                .readBytes()
-        }.onFailure { e ->
-            Log.e(TAG, "downloadSearchCover", e)
-        }.getOrNull()
-            ?: return@withContext
-
-        val fileExtension = url.substring(
-            url.lastIndexOf('.')
-        )
-
-        val coverFile = yomiFiles.writeSearchCover(searchResult.tempId, fileExtension, bytes)
-        if (coverFile == null || !coverFile.exists()) {
-            Log.w(TAG, "downloadCover: Cover failed to save")
-            return@withContext
-        }
-
-        searchMutex.withLock {
-            val result = _searchResults.value[searchResult.tempId]
-            if (result == null) {
-                Log.w(TAG, "downloadSearchCover: result to update is null")
-                return@withContext
-            }
-            val updatedSearchResult = result.copy(
-                coverFile = coverFile
-            )
-            _searchResults.value = (_searchResults.value
-                    + Pair(searchResult.tempId, updatedSearchResult)
-                    ).toMutableMap()
         }
     }
 
@@ -277,47 +311,7 @@ class NovelRepository(context: Context) {
         }
     }
 
-    // TODO: I think this can be removed, as it will be the search workflow that add it.
-    suspend fun downloadNovelInfo(url: String) = withContext(Dispatchers.IO) {
-        // First, see if we already have this novel.
-//        for (novel in novels.value.values) {
-//            if (novel.metadata.url == url) {
-//                // TODO update chapter list
-//                Log.d(TAG, "crawlNovelInfo: Already have this novel. Updates not implemented")
-//                return@withContext
-//            }
-//        }
-//
-//        val novelInfo = crawler.getNovelInfo(url)
-//        Log.d(TAG, "Crawled novel: $novelInfo")
-//        if (novelInfo == null) {
-//            return@withContext
-//        }
-//
-//        addNovel(novelInfo)
-    }
-
-    private suspend fun downloadChapterInfo(novelMeta: NovelMeta) = withContext(Dispatchers.IO) {
-        val chapterInfo = crawler.getChapterInfo(novelMeta.url)
-        val chapterList = chapterInfo.map { info ->
-            ChapterMeta(
-                id = info.id,
-                novelId = novelMeta.id,
-                title = info.title,
-                url = info.url
-            )
-        }
-        novelMutex.withLock {
-            val novel = getNovel(novelMeta.id) ?: return@withContext
-            setNovel(
-                novel.copy(
-                    chapters = chapterList
-                )
-            )
-        }
-    }
-
-    private suspend fun addNovel(id: Long, novelInfo: NovelInfo, coverFile: File? = null): Novel? {
+    private suspend fun addNovel(id: Long, novelInfo: NovelInfo): Novel? {
         val title = novelInfo.title
         if (title.isNullOrBlank()) {
             Log.e(TAG, "addNovel: failed. $novelInfo")
@@ -334,21 +328,21 @@ class NovelRepository(context: Context) {
         val novel = Novel(
             inLibrary = false,
             metadata = novelMeta,
-            coverFile = coverFile
         )
         novelMutex.withLock {
             setNovel(novel)
         }
         Log.d(TAG, "Added novel")
 
-        if (coverFile == null) {
-            ioScope.launch {
-                downloadCover(novelMeta)
-            }
-        }
         ioScope.launch {
-            downloadChapterInfo(novelMeta)
+            downloadCover(novelMeta)
         }
+
+        scheduler.schedule(DownloadChapterInfoJob(
+            novel = novel,
+            crawler = crawler
+        ))
+
         return novel
     }
 
@@ -398,43 +392,34 @@ class NovelRepository(context: Context) {
 
     fun searchForNewNovels(query: String) {
         _searchInProgress.value = true
-        _searchResults.value = mutableMapOf()
+        _searchResults.value = mutableSetOf()
+
         ioScope.launch {
             yomiFiles.clearSearchCache()
-        }
-        ioScope.launch {
             val novelInfoList = crawler.searchNovels(query)
             searchMutex.withLock {
-                val result: Map<Long, SearchResult> = novelInfoList.map { novelInfo ->
-                    var existingNovel: Novel? = null
-                    for (novel in _novels.value.values) {
-                        if (novel.metadata.url == novelInfo.url) {
-                            // It's in the library already
-                            existingNovel = novel
-                            break
-                        }
+                val result: Set<Long> = novelInfoList.mapNotNull { novelInfo ->
+                    val existingNovel = getNovel(novelInfo.url)
+                    if (existingNovel != null) {
+                        return@mapNotNull existingNovel.metadata.id
                     }
-                    val tempId = existingNovel?.metadata?.id
-                        ?: memoryNovelId.getAndDecrement()
 
-                    val searchResult = SearchResult(
-                        tempId = tempId,
-                        novelInfo = novelInfo,
-                        coverFile = existingNovel?.coverFile
-                    )
-                    if (existingNovel == null) {
-                        launch {
-                            downloadSearchCover(searchResult)
-                            val updated = _searchResults.value[searchResult.tempId]
-                            addNovel(
-                                id = tempId,
-                                novelInfo = novelInfo,
-                                coverFile = updated?.coverFile
-                            )
-                        }
-                    }
-                    tempId to searchResult
-                }.toMap()
+                    val tempId = memoryNovelId.getAndDecrement()
+                    val newNovel = addNovel(
+                        id = tempId,
+                        novelInfo = novelInfo
+                    ) ?: return@mapNotNull null
+
+                    // It's unlikely the search info contains everything we want, so schedule to do
+                    // a full novel info grab
+                    Log.d(TAG, "searchForNewNovels: Scheduling download for ${newNovel.metadata.title}")
+                    scheduler.schedule(DownloadNovelInfoJob(
+                        crawler = crawler,
+                        novel = newNovel
+                    ))
+                    tempId
+                }.toHashSet()
+                scheduler.setActiveSearch(result)
                 _searchResults.value = result
             }
             _searchInProgress.value = false

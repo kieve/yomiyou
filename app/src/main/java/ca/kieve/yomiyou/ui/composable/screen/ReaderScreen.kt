@@ -28,7 +28,13 @@ fun ReaderScreen(
     chapterId: Long
 ) {
     val novelRepository = yomiContext.appContainer.novelRepository
-    novelRepository.openNovel(novelId)
+    val scheduler = yomiContext.appContainer.novelScheduler
+
+    LaunchedEffect(Unit) {
+        scheduler.setActiveNovel(novelId)
+        novelRepository.openNovel(novelId)
+    }
+
     val chapters by novelRepository.openNovel.collectAsState()
 
     val listState = rememberLazyListState()

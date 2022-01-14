@@ -3,7 +3,7 @@ package ca.kieve.yomiyou.data
 import android.content.Context
 import ca.kieve.yomiyou.crawler.Crawler
 import ca.kieve.yomiyou.data.database.YomiDatabase
-import ca.kieve.yomiyou.data.repository.NovelRepository
+import ca.kieve.yomiyou.data.scheduler.NovelScheduler
 import ca.kieve.yomiyou.scraper.WebViewScraper
 
 class AppContainer(private val appContext: Context) {
@@ -15,11 +15,15 @@ class AppContainer(private val appContext: Context) {
         YomiFiles(appContext)
     }
 
-    val crawler: Crawler by lazy {
-        Crawler(WebViewScraper(appContext))
-    }
-
     val novelRepository: NovelRepository by lazy {
         NovelRepository(appContext)
+    }
+
+    val novelScheduler: NovelScheduler by lazy {
+        NovelScheduler(appContext)
+    }
+
+    val crawler: Crawler by lazy {
+        Crawler(WebViewScraper(appContext))
     }
 }

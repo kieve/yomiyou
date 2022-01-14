@@ -6,8 +6,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.FabPosition
-import androidx.compose.material.FloatingActionButton
 import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
 import androidx.compose.material.MaterialTheme
@@ -16,8 +14,8 @@ import androidx.compose.material.Text
 import androidx.compose.material.TopAppBar
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -27,31 +25,18 @@ import androidx.navigation.NavController
 import ca.kieve.yomiyou.R
 import ca.kieve.yomiyou.YomiContext
 import ca.kieve.yomiyou.YomiScreen
-import ca.kieve.yomiyou.data.repository.NovelRepository
+import ca.kieve.yomiyou.data.NovelRepository
 import ca.kieve.yomiyou.ui.composable.NovelCard
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
 
 @Composable
 fun NovelListScreen(yomiContext: YomiContext) {
-    /** Debug stuff **/
-    val perfectRun = "the-perfect-run"
-    val lordOfMysteries = "lord-of-the-mysteries-wn-24121303"
-    val magesAreTooOp = "mages-are-too-op-wn-19072354"
-    val novelsExtra = "the-novels-extra-19072354"
-    val theBeginAfterEnd = "the-beginning-after-the-end-web-novel-02121804"
-    val omniscentReadersVP = "orv-wn-24121303"
-    val swordGod = "reincarnation-of-the-strongest-sword-god-lnv-24121303"
-    val novel = "https://www.lightnovelpub.com/novel/$omniscentReadersVP"
-    /*****************/
-
     val navController = yomiContext.navController
     val novelRepository = yomiContext.appContainer.novelRepository
+    val scheduler = yomiContext.appContainer.novelScheduler
 
-    val job = Job()
-    val scope = CoroutineScope(Dispatchers.IO + job)
+    LaunchedEffect(Unit) {
+        scheduler.setActiveNovel(null)
+    }
 
     Scaffold(
         topBar = {
@@ -74,25 +59,7 @@ fun NovelListScreen(yomiContext: YomiContext) {
                     }
                 }
             )
-    },
-    floatingActionButtonPosition = FabPosition.End,
-    floatingActionButton = {
-        FloatingActionButton(onClick = {
-            scope.launch {
-//                novelRepository.crawlNovelInfo(novel)
-//                val chapterMeta = novelRepository.getNovel(1)?.chapters?.get(0)
-//                if (chapterMeta != null) {
-//                    novelRepository.downloadChapter(chapterMeta)
-//                }
-//                novelRepository.searchForNewNovels("sword")
-            }
-        }) {
-            Icon(
-                imageVector = Icons.Filled.Warning,
-                contentDescription = "Debug"
-            )
         }
-    }
     ) {
         NovelList(navController, novelRepository)
     }
