@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import ca.kieve.yomiyou.YomiApplication
 import ca.kieve.yomiyou.copydown.CopyDown
+import ca.kieve.yomiyou.crawler.model.ChapterInfo
 import ca.kieve.yomiyou.crawler.model.NovelInfo
 import ca.kieve.yomiyou.data.database.model.ChapterMeta
 import ca.kieve.yomiyou.data.database.model.NovelMeta
@@ -11,7 +12,6 @@ import ca.kieve.yomiyou.data.model.Novel
 import ca.kieve.yomiyou.data.model.OpenChapter
 import ca.kieve.yomiyou.data.scheduler.DownloadChapterInfoJob
 import ca.kieve.yomiyou.data.scheduler.DownloadNovelInfoJob
-import ca.kieve.yomiyou.data.scheduler.NovelScheduler
 import ca.kieve.yomiyou.util.getTag
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -36,7 +36,7 @@ class NovelRepository(context: Context) {
     private val appContainer = (context as YomiApplication).container
     private val yomiFiles = appContainer.files
     private val novelDao = appContainer.database.novelDao()
-    private val scheduler: NovelScheduler get() { return appContainer.novelScheduler }
+    private val scheduler = appContainer.novelScheduler
     private val crawler = appContainer.crawler
 
     private val memoryNovelId = AtomicLong(-1)
@@ -154,12 +154,12 @@ class NovelRepository(context: Context) {
         downloadChapter(chapterMeta)
     }
 
-    suspend fun onJobComplete(job: DownloadNovelInfoJob) {
-        val result = job.result ?: return
-        Log.d(TAG, "DownloadNovelInfoJob complete: ${result.title}")
+    suspend fun onNovelInfoUpdate(novelId: Long, novelInfo: NovelInfo?) {
+        novelInfo ?: return
+        Log.d(TAG, "onNovelInfoUpdate: ${novelInfo.title}")
 
         novelMutex.withLock {
-            val novel = getNovel(job.novel.metadata.id)
+            val novel = getNovel(novelId)
             if (novel == null) {
                 Log.d(TAG, "Novel is missing after Downloading Novel Info")
                 return@withLock
@@ -168,7 +168,7 @@ class NovelRepository(context: Context) {
             var anyChange = false
             var metadata = novel.metadata
 
-            val title = result.title
+            val title = novelInfo.title
             if (title != null && metadata.title != title) {
                 anyChange = true
                 metadata = metadata.copy(
@@ -176,7 +176,7 @@ class NovelRepository(context: Context) {
                 )
             }
 
-            val author = result.author
+            val author = novelInfo.author
             if (author != null && metadata.author != author) {
                 anyChange = true
                 metadata = metadata.copy(
@@ -185,7 +185,7 @@ class NovelRepository(context: Context) {
             }
 
             var downloadCover = false
-            val coverUrl = result.coverUrl
+            val coverUrl = novelInfo.coverUrl
             if (coverUrl != null && metadata.coverUrl != coverUrl) {
                 anyChange = true
                 downloadCover = true
@@ -207,23 +207,36 @@ class NovelRepository(context: Context) {
         }
     }
 
-    suspend fun onJobComplete(job: DownloadChapterInfoJob) {
-        val result = job.result ?: return
-        Log.d(TAG, "DownloadChapterInfoJob complete: ${job.novel.metadata.title}")
+    suspend fun onChapterListUpdate(novelId: Long, chapterInfoList: List<ChapterInfo>) {
+        if (chapterInfoList.isEmpty()) return
 
-        val chapterList = result.map { info ->
+        val chapterList = chapterInfoList.map { info ->
             ChapterMeta(
                 id = info.id,
-                novelId = job.novel.metadata.id,
+                novelId = novelId,
                 title = info.title,
                 url = info.url
             )
         }
         novelMutex.withLock {
-            val novel = getNovel(job.novel.metadata.id) ?: return
+            val novel = getNovel(novelId) ?: return
+            Log.d(TAG, "onChapterListUpdate: ${novel.metadata.title}")
+
+            // Merge the chapter list
+            val chapterMap = novel.chapters.map { chapterMeta ->
+                chapterMeta.id to chapterMeta
+            }.toMap().toMutableMap()
+
+            for (chapter in chapterList) {
+                chapterMap[chapter.id] = chapter
+            }
+
+            val sortedChapters = chapterMap.values.toList()
+                .sortedBy { chapterMeta -> chapterMeta.id }
+
             setNovel(
                 novel.copy(
-                    chapters = chapterList
+                    chapters = sortedChapters
                 )
             )
         }
@@ -340,7 +353,8 @@ class NovelRepository(context: Context) {
 
         scheduler.schedule(DownloadChapterInfoJob(
             novel = novel,
-            crawler = crawler
+            crawler = crawler,
+            novelRepository = this
         ))
 
         return novel
@@ -415,7 +429,8 @@ class NovelRepository(context: Context) {
                     Log.d(TAG, "searchForNewNovels: Scheduling download for ${newNovel.metadata.title}")
                     scheduler.schedule(DownloadNovelInfoJob(
                         crawler = crawler,
-                        novel = newNovel
+                        novel = newNovel,
+                        novelRepository = this@NovelRepository
                     ))
                     tempId
                 }.toHashSet()

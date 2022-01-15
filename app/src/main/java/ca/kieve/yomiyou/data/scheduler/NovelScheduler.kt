@@ -2,8 +2,6 @@ package ca.kieve.yomiyou.data.scheduler
 
 import android.content.Context
 import android.util.Log
-import ca.kieve.yomiyou.YomiApplication
-import ca.kieve.yomiyou.data.NovelRepository
 import ca.kieve.yomiyou.util.getTag
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -17,14 +15,11 @@ class NovelScheduler(context: Context) {
         val TAG = getTag()
     }
 
-    private val appContainer = (context as YomiApplication).container
-    private val novelRepository: NovelRepository get() { return appContainer.novelRepository }
-
     private val defaultScope = CoroutineScope(context = Job() + Dispatchers.Default)
 
     private val runMutex = Mutex()
     private val schedulerMutex = Mutex()
-    private val mainQueue = ArrayDeque<NovelJob>(listOf())
+    private val mainQueue = ArrayDeque<MultiStepJob>(listOf())
 
     /*
      * Metrics for determining job priority
@@ -39,7 +34,7 @@ class NovelScheduler(context: Context) {
     // Active search set being viewed
     private var activeSearch: Set<Long> = setOf()
 
-    fun schedule(job: NovelJob) {
+    fun schedule(job: MultiStepJob) {
         defaultScope.launch {
             schedulerMutex.withLock {
                 mainQueue.addLast(job)
@@ -60,7 +55,7 @@ class NovelScheduler(context: Context) {
     }
 
     fun setActiveSearch(novelIds: Collection<Long>) {
-        Log.d(TAG, "setActiveSearch: ${novelIds}")
+        Log.d(TAG, "setActiveSearch: $novelIds")
         defaultScope.launch {
             schedulerMutex.withLock {
                 activeSearch = novelIds.toSet()
@@ -124,20 +119,21 @@ class NovelScheduler(context: Context) {
 
     private suspend fun runJobs() {
         while (true) {
-            val job: NovelJob?
+            val job: MultiStepJob?
             schedulerMutex.withLock {
-                job = mainQueue.removeFirstOrNull()
+                job = mainQueue.firstOrNull()
+                if (job !== null && job.isDone) {
+                    mainQueue.removeFirst()
+                }
             }
             if (job == null) {
                 return
             }
-            Log.d(TAG, "running job: ${job.novel.metadata.id}")
-            job.execute()
-            if (job is DownloadNovelInfoJob) {
-                novelRepository.onJobComplete(job)
-            } else if (job is DownloadChapterInfoJob) {
-                novelRepository.onJobComplete(job)
+            if (job.isDone) {
+                continue
             }
+            Log.d(TAG, "running job: ${job.novel.metadata.id}")
+            job.executeNextStep()
         }
     }
 }

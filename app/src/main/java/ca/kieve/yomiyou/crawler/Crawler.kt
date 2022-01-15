@@ -2,6 +2,7 @@ package ca.kieve.yomiyou.crawler
 
 import android.icu.text.UnicodeSet
 import ca.kieve.yomiyou.crawler.model.ChapterInfo
+import ca.kieve.yomiyou.crawler.model.ChapterListInfo
 import ca.kieve.yomiyou.crawler.model.NovelInfo
 import ca.kieve.yomiyou.crawler.source.en.l.LightNovelPub
 import ca.kieve.yomiyou.scraper.Scraper
@@ -138,16 +139,25 @@ class Crawler(val scraper: Scraper) {
         }
 
         currentNovelUrl = novelUrl
-        return currentSource?.getNovelInfo(this)
+        return currentSource?.getInfo(this)
     }
 
-    suspend fun getChapterInfo(novelUrl: String): List<ChapterInfo> {
+    suspend fun getChapterListInfo(novelUrl: String): ChapterListInfo {
+        if (!initSource(novelUrl)) {
+            return ChapterListInfo(totalPages = 0)
+        }
+
+        currentNovelUrl = novelUrl
+        return currentSource?.getChapterListInfo(this) ?: ChapterListInfo(totalPages = 0)
+    }
+
+    suspend fun getChapterListPage(novelUrl: String, page: Int): List<ChapterInfo> {
         if (!initSource(novelUrl)) {
             return emptyList()
         }
 
         currentNovelUrl = novelUrl
-        return currentSource?.getNovelChapterList(this) ?: emptyList()
+        return currentSource?.getChapterListPage(this, page) ?: emptyList()
     }
 
     suspend fun downloadChapter(chapterUrl: String): String? {
@@ -155,11 +165,11 @@ class Crawler(val scraper: Scraper) {
             return null
         }
 
-        return currentSource?.downloadChapterBody(this, chapterUrl)
+        return currentSource?.downloadChapter(this, chapterUrl)
     }
 
     suspend fun searchNovels(query: String): List<NovelInfo> {
-        return SOURCES[0].searchNovel(this, query)
+        return SOURCES[0].search(this, query)
     }
 
     fun absoluteUrl(_url: String = "", _pageUrl: String? = null): String {
