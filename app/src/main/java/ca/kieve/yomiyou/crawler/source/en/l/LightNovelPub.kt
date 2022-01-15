@@ -22,15 +22,6 @@ class LightNovelPub : SourceCrawler {
         private const val CHAPTER_LIST_FORMAT = "%s/chapters/page-%d"
         private val PAGE_NUM_REGEX = """.*/page-(\d+).*""".toRegex()
 
-
-        private val SEARCH_JS = """
-            document.querySelector("#inputContent").value = "%s";
-            document.querySelector("#inputContent")
-                .dispatchEvent(new KeyboardEvent('keydown', { key: "a" }));
-            document.querySelector("#inputContent")
-                .dispatchEvent(new KeyboardEvent('keyup', { key: "a" }));
-            """.trimIndent()
-
         private val BAD_CSS = setOf(
             ".adsbox",
             "p[class]",
