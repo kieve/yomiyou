@@ -21,6 +21,7 @@ class LightNovelPub : SourceCrawler {
         private const val SEARCH_FORMAT = "lnwsearchlive?inputContent=%s"
         private const val CHAPTER_LIST_FORMAT = "%s/chapters/page-%d"
         private val PAGE_NUM_REGEX = """.*/page-(\d+).*""".toRegex()
+        private val URL_SUFFIX_REGEX = """(\d+)$""".toRegex()
 
         private val BAD_CSS = setOf(
             ".adsbox",
@@ -45,6 +46,13 @@ class LightNovelPub : SourceCrawler {
             "https://www.lightnovelpub.com/",
             "https://www.lightnovelworld.com/"
     )
+
+    override fun areSameNovel(aUrl: String, bUrl: String): Boolean {
+        val aFixed = aUrl.replace(URL_SUFFIX_REGEX, "")
+        val bFixed = bUrl.replace(URL_SUFFIX_REGEX, "")
+        Log.d(TAG, "areSameNovel: $aFixed $bFixed")
+        return aFixed == bFixed
+    }
 
     override fun initCrawler(crawler: Crawler) {
         crawler.currentFilter = Crawler.DEFAULT_FILTER.copy(

@@ -7,6 +7,8 @@ import ca.kieve.yomiyou.crawler.model.NovelInfo
 interface SourceCrawler {
     val baseUrls: List<String>
 
+    fun areSameNovel(aUrl: String, bUrl: String): Boolean
+
     fun initCrawler(crawler: Crawler)
 
     suspend fun search(crawler: Crawler, query: String): List<NovelInfo>

@@ -79,6 +79,11 @@ class Crawler(val scraper: Scraper) {
         )
     }
 
+    private data class SourceMatch(
+        val source: SourceCrawler,
+        val baseUrl: String
+    )
+
     var lastVisitedUrl: String? = null
         private set
 
@@ -95,6 +100,20 @@ class Crawler(val scraper: Scraper) {
     // Intended to be modified by SourceCrawlers
     var currentFilter: HtmlFilter = DEFAULT_FILTER
 
+    private fun getSource(url: String): SourceMatch? {
+        for (sourceCrawler in SOURCES) {
+            for (baseUrl in sourceCrawler.baseUrls) {
+                if (url.startsWith(baseUrl)) {
+                    return SourceMatch(
+                        source = sourceCrawler,
+                        baseUrl = baseUrl
+                    )
+                }
+            }
+        }
+        return null
+    }
+
     private fun initSource(url: String): Boolean {
         // Reset our filter, since it might have been changed by the previous source
         currentFilter = DEFAULT_FILTER
@@ -104,28 +123,30 @@ class Crawler(val scraper: Scraper) {
         currentHomeUrl = null
         currentNovelUrl = null
 
-        // TODO: Build a trie mapping the baseUrls to their sources. Then here, we can search for
-        //       this URL in the trie and select the deepest matching source crawler.
-        for (sourceCrawler in SOURCES) {
-            for (baseUrl in sourceCrawler.baseUrls) {
-                if (url.startsWith(baseUrl)) {
-                    currentSource = sourceCrawler
-                    currentHomeUrl = baseUrl
-                    return true
-                }
-            }
-        }
-
-        return false
+        val source = getSource(url) ?: return false
+        currentSource = source.source
+        currentHomeUrl = source.baseUrl
+        return true
     }
 
-    private fun verifySource(url: String): Boolean {
-        val source = currentSource
-        val homeUrl = currentHomeUrl
+    fun areSameNovel(aUrl: String, bUrl: String): Boolean {
+        val aSource = getSource(aUrl)
+        val bSource = getSource(bUrl)
+        if (aSource == null && bSource == null) {
+            // Fallback to a simple string comparison
+            return aUrl == bUrl
+        }
+        if (aSource == null || bSource == null) {
+            // We didn't find a source for one of the two, so assume they're different novels
+            return false
+        }
+        if (aSource.source !== bSource.source) {
+            // They aren't from the same source, so they can't be equal
+            return false
+        }
 
-        return source != null
-                && homeUrl != null
-                && url.startsWith(homeUrl)
+        // Defer to the source to decide
+        return aSource.source.areSameNovel(aUrl, bUrl)
     }
 
     suspend fun getSoup(url: String): Document {

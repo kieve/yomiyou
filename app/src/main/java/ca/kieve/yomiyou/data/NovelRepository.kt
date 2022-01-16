@@ -72,7 +72,7 @@ class NovelRepository(context: Context) {
 
     private fun getNovel(url: String): Novel? {
         for (novel in _novels.value.values) {
-            if (novel.metadata.url == url) {
+            if (crawler.areSameNovel(novel.metadata.url, url)) {
                 return novel
             }
         }
