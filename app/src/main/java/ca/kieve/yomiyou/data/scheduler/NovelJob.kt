@@ -1,10 +1,13 @@
 package ca.kieve.yomiyou.data.scheduler
 
 import android.util.Log
+import ca.kieve.yomiyou.copydown.CopyDown
 import ca.kieve.yomiyou.crawler.Crawler
 import ca.kieve.yomiyou.crawler.model.ChapterInfo
 import ca.kieve.yomiyou.crawler.model.ChapterListInfo
+import ca.kieve.yomiyou.data.AppContainer
 import ca.kieve.yomiyou.data.NovelRepository
+import ca.kieve.yomiyou.data.database.model.ChapterMeta
 import ca.kieve.yomiyou.data.model.Novel
 import ca.kieve.yomiyou.util.getTag
 
@@ -101,5 +104,64 @@ class DownloadChapterInfoJob(
             chapterInfoList = renumbered
         )
         return nextPage > info.totalPages
+    }
+}
+
+class DownloadChapterJob(
+    override val novel: Novel,
+    private val chapterMeta: ChapterMeta,
+    private val appContainer: AppContainer
+) : SingleStepJob() {
+    companion object {
+        val TAG = getTag()
+    }
+
+    private val crawler = appContainer.crawler
+    private val files = appContainer.files
+    private val novelRepository = appContainer.novelRepository
+
+    override suspend fun execute() {
+        val debugDir = "novels/${chapterMeta.novelId} - ${novel.metadata.title}"
+        Log.d(TAG, "Downloading: debug = $debugDir")
+
+        val htmlNode = crawler.downloadChapter(chapterMeta.url)
+        files.writeDebugFile(
+            appContainer = appContainer,
+            filePath = "$debugDir/${chapterMeta.id}.html",
+            contents = htmlNode?.html() ?: "HTML was empty"
+        )
+        if (htmlNode == null) {
+            Log.d(TAG, "HTML node was null")
+            return
+        }
+
+        val extracted = crawler.extractContents(htmlNode)
+        files.writeDebugFile(
+            appContainer = appContainer,
+            filePath = "$debugDir/${chapterMeta.id}.extracted.html",
+            contents = extracted ?: "HTML was empty"
+        )
+
+        val markdown = CopyDown().convert(extracted)
+        val debugMd = if (markdown.isBlank()) "Markdown was empty" else markdown
+        files.writeDebugFile(
+            appContainer = appContainer,
+            filePath = "$debugDir/${chapterMeta.id}.md",
+            contents = debugMd
+        )
+
+        val chapterFile = files.writeChapter(
+            chapterMeta = chapterMeta,
+            content = markdown
+        )
+        if (chapterFile == null || !chapterFile.exists()) {
+            Log.w(TAG, "DownloadChapterJob: Chapter failed to save")
+            return
+        }
+
+        novelRepository.onChapterDownloaded(
+            chapterMeta = chapterMeta,
+            chapterFile = chapterFile
+        )
     }
 }

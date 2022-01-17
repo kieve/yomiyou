@@ -11,6 +11,7 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import org.jsoup.Jsoup
+import org.jsoup.nodes.Element
 import java.net.URLEncoder
 import kotlin.text.Charsets.UTF_8
 
@@ -50,7 +51,6 @@ class LightNovelPub : SourceCrawler {
     override fun areSameNovel(aUrl: String, bUrl: String): Boolean {
         val aFixed = aUrl.replace(URL_SUFFIX_REGEX, "")
         val bFixed = bUrl.replace(URL_SUFFIX_REGEX, "")
-        Log.d(TAG, "areSameNovel: $aFixed $bFixed")
         return aFixed == bFixed
     }
 
@@ -184,13 +184,13 @@ class LightNovelPub : SourceCrawler {
         return result
     }
 
-    override suspend fun downloadChapter(crawler: Crawler, url: String): String {
+    override suspend fun downloadChapter(crawler: Crawler, url: String): Element? {
         val soup = crawler.getSoup(url)
         val body = soup.selectFirst("#chapter-container")
         if (body == null) {
             Log.d(TAG, "downloadChapter: Body is null.")
-            return ""
+            return null
         }
-        return crawler.extractContents(body)
+        return body
     }
 }

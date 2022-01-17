@@ -1,14 +1,19 @@
 package ca.kieve.yomiyou.data
 
 import android.content.Context
+import android.net.Uri
 import android.util.Log
+import androidx.documentfile.provider.DocumentFile
 import ca.kieve.yomiyou.data.database.model.ChapterMeta
 import ca.kieve.yomiyou.data.database.model.NovelMeta
 import ca.kieve.yomiyou.util.ensureDirExists
+import ca.kieve.yomiyou.util.ensureFileExists
 import ca.kieve.yomiyou.util.getTag
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.OutputStreamWriter
+import java.nio.charset.StandardCharsets.UTF_8
 
 class YomiFiles(context: Context) {
     companion object {
@@ -22,6 +27,47 @@ class YomiFiles(context: Context) {
 
     private val novelsDir = File(context.filesDir, NOVELS_DIR)
     private val searchCache = File(context.cacheDir, SEARCH_DIR)
+
+    private var debugFiles: Uri? = null
+
+    fun registerDebugFiles(uri: Uri) {
+        debugFiles = uri
+        Log.d(TAG, "registerDebugFiles: $uri")
+    }
+
+    fun writeDebugFile(
+        appContainer: AppContainer,
+        filePath: String,
+        contents: String
+    ): Boolean {
+        val uri = debugFiles ?: return false
+        val docFile = DocumentFile.fromTreeUri(appContainer.appContext, uri)
+        if (docFile == null) {
+            Log.d(TAG, "writeDebugFile: DocFile is null for root folder")
+            return false
+        }
+
+        val resultFile = docFile.ensureFileExists(
+            mimeType = "",
+            filePath = filePath
+        )
+        if (resultFile == null) {
+            Log.d(TAG, "writeDebugFile: Failed to create file to write")
+            return false
+        }
+
+        val fileUri = resultFile.uri
+        val out = appContainer.appContext.contentResolver.openOutputStream(fileUri, "w")
+        if (out == null) {
+            Log.d(TAG, "writeDebugFile: Can't open out stream")
+            return false
+        }
+
+        val writer = OutputStreamWriter(out, UTF_8.name())
+        writer.write("Hello, world!\n$contents")
+        writer.close()
+        return true
+    }
 
     private fun getNovelDir(novelMeta: NovelMeta): File {
         return getNovelDir(novelMeta.id)

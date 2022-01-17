@@ -3,6 +3,7 @@ package ca.kieve.yomiyou.crawler
 import ca.kieve.yomiyou.crawler.model.ChapterInfo
 import ca.kieve.yomiyou.crawler.model.ChapterListInfo
 import ca.kieve.yomiyou.crawler.model.NovelInfo
+import org.jsoup.nodes.Element
 
 interface SourceCrawler {
     val baseUrls: List<String>
@@ -15,5 +16,5 @@ interface SourceCrawler {
     suspend fun getInfo(crawler: Crawler): NovelInfo?
     suspend fun getChapterListInfo(crawler: Crawler): ChapterListInfo
     suspend fun getChapterListPage(crawler: Crawler, page: Int): List<ChapterInfo>
-    suspend fun downloadChapter(crawler: Crawler, url: String): String
+    suspend fun downloadChapter(crawler: Crawler, url: String): Element?
 }

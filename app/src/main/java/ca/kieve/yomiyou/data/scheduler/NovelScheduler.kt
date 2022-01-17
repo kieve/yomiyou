@@ -1,6 +1,5 @@
 package ca.kieve.yomiyou.data.scheduler
 
-import android.content.Context
 import android.util.Log
 import ca.kieve.yomiyou.util.getTag
 import kotlinx.coroutines.CoroutineScope
@@ -10,7 +9,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-class NovelScheduler(context: Context) {
+class NovelScheduler {
     companion object {
         val TAG = getTag()
     }
@@ -92,11 +91,11 @@ class NovelScheduler(context: Context) {
                 }
             }
 
-            // When above is equal, novel info comes before chapter info
-            if (a is DownloadNovelInfoJob && b !is DownloadNovelInfoJob) {
-                return@sortedWith -1
-            } else if (b is DownloadNovelInfoJob && a !is DownloadNovelInfoJob) {
-                return@sortedWith 1
+            val aTypePriority = getTypePriority(a)
+            val bTypePriority = getTypePriority(b)
+
+            if (aTypePriority != bTypePriority) {
+                return@sortedWith aTypePriority - bTypePriority
             }
 
             // Same type of job, and same activity status
@@ -106,6 +105,14 @@ class NovelScheduler(context: Context) {
 
         mainQueue.clear()
         mainQueue.addAll(result)
+    }
+
+    private fun getTypePriority(job: MultiStepJob): Int {
+        return when (job) {
+            is DownloadNovelInfoJob -> 1
+            is DownloadChapterInfoJob -> 2
+            is DownloadChapterJob -> 3
+        }
     }
 
     private suspend fun tryRunJobs() {

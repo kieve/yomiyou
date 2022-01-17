@@ -3,7 +3,6 @@ package ca.kieve.yomiyou.data
 import android.content.Context
 import android.util.Log
 import ca.kieve.yomiyou.YomiApplication
-import ca.kieve.yomiyou.copydown.CopyDown
 import ca.kieve.yomiyou.crawler.model.ChapterInfo
 import ca.kieve.yomiyou.crawler.model.NovelInfo
 import ca.kieve.yomiyou.data.database.model.ChapterMeta
@@ -11,6 +10,7 @@ import ca.kieve.yomiyou.data.database.model.NovelMeta
 import ca.kieve.yomiyou.data.model.Novel
 import ca.kieve.yomiyou.data.model.OpenChapter
 import ca.kieve.yomiyou.data.scheduler.DownloadChapterInfoJob
+import ca.kieve.yomiyou.data.scheduler.DownloadChapterJob
 import ca.kieve.yomiyou.data.scheduler.DownloadNovelInfoJob
 import ca.kieve.yomiyou.util.getTag
 import kotlinx.coroutines.CoroutineScope
@@ -22,6 +22,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.net.URL
 import java.util.concurrent.atomic.AtomicLong
 
@@ -40,6 +41,8 @@ class NovelRepository(context: Context) {
     private val crawler = appContainer.crawler
 
     private val memoryNovelId = AtomicLong(-1)
+    private val migratedIds: MutableMap<Long, Long> = hashMapOf()
+
     private val novelMutex = Mutex()
     private val _novels: MutableStateFlow<MutableMap<Long, Novel>> = MutableStateFlow(hashMapOf())
     val novels: StateFlow<Map<Long, Novel>> = _novels
@@ -67,7 +70,8 @@ class NovelRepository(context: Context) {
     }
 
     private fun getNovel(id: Long): Novel? {
-        return _novels.value[id]
+        val realNovelId = migratedIds[id] ?: id
+        return _novels.value[realNovelId]
     }
 
     private fun getNovel(url: String): Novel? {
@@ -207,20 +211,34 @@ class NovelRepository(context: Context) {
         }
     }
 
+    suspend fun onChapterDownloaded(chapterMeta: ChapterMeta, chapterFile: File) {
+        novelMutex.withLock {
+            val novel = getNovel(chapterMeta.novelId)
+            if (novel == null) {
+                Log.w(TAG, "downloadChapter: Novel to update is null")
+                return
+            }
+            setNovel(novel.copy(
+                chapterFiles = novel.chapterFiles + Pair(chapterMeta.id, chapterFile)
+            ))
+        }
+    }
+
     suspend fun onChapterListUpdate(novelId: Long, chapterInfoList: List<ChapterInfo>) {
         if (chapterInfoList.isEmpty()) return
 
-        val chapterList = chapterInfoList.map { info ->
-            ChapterMeta(
-                id = info.id,
-                novelId = novelId,
-                title = info.title,
-                url = info.url
-            )
-        }
         novelMutex.withLock {
             val novel = getNovel(novelId) ?: return
             Log.d(TAG, "onChapterListUpdate: ${novel.metadata.title}")
+
+            val chapterList = chapterInfoList.map { info ->
+                ChapterMeta(
+                    id = info.id,
+                    novelId = novel.metadata.id,
+                    title = info.title,
+                    url = info.url
+                )
+            }
 
             // Merge the chapter list
             val chapterMap = novel.chapters.map { chapterMeta ->
@@ -287,41 +305,25 @@ class NovelRepository(context: Context) {
         }
     }
 
-    private suspend fun downloadChapter(chapterMeta: ChapterMeta) = withContext(Dispatchers.IO) {
+    private suspend fun downloadChapter(chapterMeta: ChapterMeta) {
         val logId = "${chapterMeta.novelId},${chapterMeta.id}"
         if (yomiFiles.chapterExists(chapterMeta)) {
             Log.d(TAG, "downloadChapter: $logId exists")
-            return@withContext
+            return
+        }
+
+        val novel = getNovel(chapterMeta.novelId)
+        if (novel == null) {
+            Log.d(TAG, "downloadChapter: Novel missing: $logId")
+            return
         }
         Log.d(TAG, "downloadChapter: $logId")
 
-        val content = crawler.downloadChapter(chapterMeta.url)
-
-        val markdown = if (content != null) {
-            Log.d(TAG, "downloadChapter: $logId converting to MD")
-            CopyDown().convert(content)
-        } else {
-            Log.d(TAG, "downloadChapter: $logId failed to download")
-            return@withContext
-        }
-        val chapterFile = yomiFiles.writeChapter(
+        scheduler.schedule(DownloadChapterJob(
+            novel = novel,
             chapterMeta = chapterMeta,
-            content = markdown)
-        if (chapterFile == null || !chapterFile.exists()) {
-            Log.w(TAG, "downloadChapter: Chapter failed to save")
-            return@withContext
-        }
-
-        novelMutex.withLock {
-            val novel = getNovel(chapterMeta.novelId)
-            if (novel == null) {
-                Log.w(TAG, "downloadChapter: Novel to update is null")
-                return@withContext
-            }
-            setNovel(novel.copy(
-                chapterFiles = novel.chapterFiles + Pair(chapterMeta.id, chapterFile)
-            ))
-        }
+            appContainer = appContainer
+        ))
     }
 
     private suspend fun addNovel(id: Long, novelInfo: NovelInfo): Novel? {
@@ -372,7 +374,7 @@ class NovelRepository(context: Context) {
             for (chapterMeta in novel.chapters) {
                 val chapterFile = novel.chapterFiles[chapterMeta.id]
                 if (chapterFile == null || !chapterFile.exists()) {
-                    Log.d(TAG, "FUCK the chapter file isn't there? $chapterFile")
+                    Log.d(TAG, "FUCK the chapter file isn't there? ${chapterMeta.id} $chapterFile")
                     allChapters.add(
                         OpenChapter(
                             chapterMeta = chapterMeta,
@@ -455,6 +457,8 @@ class NovelRepository(context: Context) {
                 novelMeta = novelMeta.copy(
                     id = newId
                 )
+                migratedIds[novel.metadata.id] = newId
+                Log.d(TAG, "addToLibrary: map ${novel.metadata.id} -> $newId")
 
                 val chapters = novel.chapters
                 val newChapters = chapters.map { chapterMeta ->
@@ -473,12 +477,17 @@ class NovelRepository(context: Context) {
                             coverFile = novel.coverFile
                         )
 
+                // Setting novel in Library to true
                 setNovel(Novel(
                     inLibrary = true,
                     metadata = novelMeta,
                     chapters = newChapters,
                     coverFile = newCover
                 ))
+
+                newChapters.forEach { chapterMeta ->
+                    downloadChapter(chapterMeta)
+                }
             }
         }
     }

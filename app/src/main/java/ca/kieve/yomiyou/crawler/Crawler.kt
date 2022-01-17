@@ -1,6 +1,7 @@
 package ca.kieve.yomiyou.crawler
 
 import android.icu.text.UnicodeSet
+import android.util.Log
 import ca.kieve.yomiyou.crawler.model.ChapterInfo
 import ca.kieve.yomiyou.crawler.model.ChapterListInfo
 import ca.kieve.yomiyou.crawler.model.NovelInfo
@@ -26,8 +27,10 @@ class Crawler(val scraper: Scraper) {
         private const val LINE_SEP = "<br>"
         private val INVISIBLE_CHARS = UnicodeSet("[\\p{Cf}\\p{Cc}]")
         private val NON_PRINTABLE_CHARS = UnicodeSet(INVISIBLE_CHARS)
-                .addAll(0x00, 0x20 - 1)
-                .addAll(0x7f, 0xa0 - 1)
+            .addAll(0x00, 0x20 - 1)
+            .addAll(0x7f, 0xa0 - 1)
+            .add("\u200D") // Zero-width joiner
+            .add("\u200E") // Left-to-right mark
 
         private val SOURCES = listOf<SourceCrawler>(
             LightNovelPub()
@@ -124,6 +127,7 @@ class Crawler(val scraper: Scraper) {
         currentNovelUrl = null
 
         val source = getSource(url) ?: return false
+        source.source.initCrawler(this)
         currentSource = source.source
         currentHomeUrl = source.baseUrl
         return true
@@ -181,7 +185,7 @@ class Crawler(val scraper: Scraper) {
         return currentSource?.getChapterListPage(this, page) ?: emptyList()
     }
 
-    suspend fun downloadChapter(chapterUrl: String): String? {
+    suspend fun downloadChapter(chapterUrl: String): Element? {
         if (!initSource(chapterUrl)) {
             return null
         }
