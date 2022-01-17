@@ -1,9 +1,12 @@
 - Turn these into issues in GitHub (maybe after the first POC is complete)
-- Priority Queue / Jobs for scraping.
-- Refactor novel / search system.
-    - Using negative IDs is wack
-    - Treat all novels the same
-    - Cached novels will indeed be saved in the DB, but regularly purged if not added to the library
+- audit novel repository; make sure:
+    - When setNovel is called, novelDao is updated
+    - when novelDao is udpated, setNovel is called
+    - Likely refactor this into centralized common code that manages all mutability and exposes a'
+      very simple interface
+- revisit "openNovel" so chapters appear as they are downloaded while reading.
+- Purge data for novels not saved to the library
+- Allow reading chapters ad-hoc on novels not added to library
 - UI / User Feedback for downloading and updating chapters
 - Implement more sources! (at least 3, so I can stop assuming there's only 1)
 - Theme the app

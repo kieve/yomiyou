@@ -21,12 +21,9 @@ class YomiFiles(context: Context) {
 
         private const val NOVELS_DIR = "novels"
         private const val NOVEL_COVER_FILE_NAME = "cover"
-
-        private const val SEARCH_DIR = "search"
     }
 
     private val novelsDir = File(context.filesDir, NOVELS_DIR)
-    private val searchCache = File(context.cacheDir, SEARCH_DIR)
 
     private var debugFiles: Uri? = null
 
@@ -79,10 +76,6 @@ class YomiFiles(context: Context) {
         return novelDir
     }
 
-    suspend fun clearSearchCache() = withContext(Dispatchers.IO) {
-        searchCache.delete()
-    }
-
     suspend fun getNovelCoverFile(novelMeta: NovelMeta): File? = withContext(Dispatchers.IO) {
         val novelDir = getNovelDir(novelMeta)
         if (!novelDir.exists()) {
@@ -124,37 +117,6 @@ class YomiFiles(context: Context) {
             return@withContext null
         }
         return@withContext coverFile
-    }
-
-    suspend fun writeSearchCover(
-        tempId: Long,
-        extension: String,
-        bytes: ByteArray
-    ): File? = withContext(Dispatchers.IO)
-    {
-        ensureDirExists(searchCache)
-
-        val coverFile = File(searchCache, "$tempId$extension")
-        runCatching {
-            coverFile.outputStream()
-                .buffered()
-                .write(bytes)
-        }.onFailure { e ->
-            Log.e(TAG, "writeSearchCover", e)
-            return@withContext null
-        }
-        return@withContext coverFile
-    }
-
-    suspend fun migrateSearchCover(
-        novelMeta: NovelMeta,
-        coverFile: File
-    ): File = withContext(Dispatchers.IO)
-    {
-        val novelDir = getNovelDir(novelMeta)
-        val newFile = File(novelDir, "$NOVEL_COVER_FILE_NAME.${coverFile.extension}")
-        coverFile.copyTo(newFile)
-        return@withContext newFile
     }
 
     suspend fun chapterExists(chapterMeta: ChapterMeta): Boolean = withContext(Dispatchers.IO) {

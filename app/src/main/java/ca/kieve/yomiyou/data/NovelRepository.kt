@@ -24,7 +24,6 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.net.URL
-import java.util.concurrent.atomic.AtomicLong
 
 class NovelRepository(context: Context) {
     companion object {
@@ -39,9 +38,6 @@ class NovelRepository(context: Context) {
     private val novelDao = appContainer.database.novelDao()
     private val scheduler = appContainer.novelScheduler
     private val crawler = appContainer.crawler
-
-    private val memoryNovelId = AtomicLong(-1)
-    private val migratedIds: MutableMap<Long, Long> = hashMapOf()
 
     private val novelMutex = Mutex()
     private val _novels: MutableStateFlow<MutableMap<Long, Novel>> = MutableStateFlow(hashMapOf())
@@ -70,8 +66,7 @@ class NovelRepository(context: Context) {
     }
 
     private fun getNovel(id: Long): Novel? {
-        val realNovelId = migratedIds[id] ?: id
-        return _novels.value[realNovelId]
+        return _novels.value[id]
     }
 
     private fun getNovel(url: String): Novel? {
@@ -87,10 +82,11 @@ class NovelRepository(context: Context) {
         val novelMetas = novelDao.getAllNovelMeta()
         for (novelMeta in novelMetas) {
             novelMutex.withLock {
-                setNovel(Novel(
-                    inLibrary = true,
-                    metadata = novelMeta
-                ))
+                setNovel(
+                    Novel(
+                        metadata = novelMeta
+                    )
+                )
             }
             launch {
                 loadNovelCover(novelMeta)
@@ -111,9 +107,11 @@ class NovelRepository(context: Context) {
                     Log.w(TAG, "Can't load novel cover; the novel is null?")
                     return@withContext
                 }
-                setNovel(novel.copy(
-                    coverFile = novelCoverFile
-                ))
+                setNovel(
+                    novel.copy(
+                        coverFile = novelCoverFile
+                    )
+                )
             }
             return@withContext
         }
@@ -128,9 +126,11 @@ class NovelRepository(context: Context) {
                 Log.w(TAG, "Can't load novel chapters; the novel is null?")
                 return@withContext
             }
-            setNovel(novel.copy(
-                chapters = chapters
-            ))
+            setNovel(
+                novel.copy(
+                    chapters = chapters
+                )
+            )
         }
 
         for (chapterMeta in chapters) {
@@ -149,13 +149,18 @@ class NovelRepository(context: Context) {
                     Log.w(TAG, "Can't load chapter; the novel is null?")
                     return@withContext
                 }
-                setNovel(novel.copy(
-                    chapterFiles = novel.chapterFiles + Pair(chapterMeta.id, chapterFile)
-                ))
+                setNovel(
+                    novel.copy(
+                        chapterFiles = novel.chapterFiles + Pair(chapterMeta.id, chapterFile)
+                    )
+                )
             }
             return@withContext
         }
-        downloadChapter(chapterMeta)
+        val novel = getNovel(chapterMeta.novelId)
+        if (novel != null && novel.metadata.inLibrary) {
+            downloadChapter(chapterMeta)
+        }
     }
 
     suspend fun onNovelInfoUpdate(novelId: Long, novelInfo: NovelInfo?) {
@@ -211,19 +216,6 @@ class NovelRepository(context: Context) {
         }
     }
 
-    suspend fun onChapterDownloaded(chapterMeta: ChapterMeta, chapterFile: File) {
-        novelMutex.withLock {
-            val novel = getNovel(chapterMeta.novelId)
-            if (novel == null) {
-                Log.w(TAG, "downloadChapter: Novel to update is null")
-                return
-            }
-            setNovel(novel.copy(
-                chapterFiles = novel.chapterFiles + Pair(chapterMeta.id, chapterFile)
-            ))
-        }
-    }
-
     suspend fun onChapterListUpdate(novelId: Long, chapterInfoList: List<ChapterInfo>) {
         if (chapterInfoList.isEmpty()) return
 
@@ -252,9 +244,25 @@ class NovelRepository(context: Context) {
             val sortedChapters = chapterMap.values.toList()
                 .sortedBy { chapterMeta -> chapterMeta.id }
 
+            novelDao.upsertChapterMeta(sortedChapters)
             setNovel(
                 novel.copy(
                     chapters = sortedChapters
+                )
+            )
+        }
+    }
+
+    suspend fun onChapterDownloaded(chapterMeta: ChapterMeta, chapterFile: File) {
+        novelMutex.withLock {
+            val novel = getNovel(chapterMeta.novelId)
+            if (novel == null) {
+                Log.w(TAG, "downloadChapter: Novel to update is null")
+                return
+            }
+            setNovel(
+                novel.copy(
+                    chapterFiles = novel.chapterFiles + Pair(chapterMeta.id, chapterFile)
                 )
             )
         }
@@ -281,13 +289,7 @@ class NovelRepository(context: Context) {
             novelMeta.coverUrl.lastIndexOf('.')
         )
 
-        val coverFile = if (novelMeta.id < 0) {
-            // This is a search / temp novel, so store it appropriately
-            yomiFiles.writeSearchCover(novelMeta.id, fileExtension, bytes)
-        } else {
-            yomiFiles.writeNovelCover(novelMeta, fileExtension, bytes)
-        }
-
+        val coverFile = yomiFiles.writeNovelCover(novelMeta, fileExtension, bytes)
         if (coverFile == null || !coverFile.exists()) {
             Log.w(TAG, "downloadCover: Cover failed to save")
             return@withContext
@@ -299,9 +301,11 @@ class NovelRepository(context: Context) {
                 Log.w(TAG, "downloadCover: Novel to update is null")
                 return@withContext
             }
-            setNovel(novel.copy(
-                coverFile = coverFile
-            ))
+            setNovel(
+                novel.copy(
+                    coverFile = coverFile
+                )
+            )
         }
     }
 
@@ -319,29 +323,32 @@ class NovelRepository(context: Context) {
         }
         Log.d(TAG, "downloadChapter: $logId")
 
-        scheduler.schedule(DownloadChapterJob(
-            novel = novel,
-            chapterMeta = chapterMeta,
-            appContainer = appContainer
-        ))
+        scheduler.schedule(
+            DownloadChapterJob(
+                novel = novel,
+                chapterMeta = chapterMeta,
+                appContainer = appContainer
+            )
+        )
     }
 
-    private suspend fun addNovel(id: Long, novelInfo: NovelInfo): Novel? {
+    private suspend fun addNovel(novelInfo: NovelInfo): Novel? {
         val title = novelInfo.title
         if (title.isNullOrBlank()) {
             Log.e(TAG, "addNovel: failed. $novelInfo")
             return null
         }
-        val novelMeta = NovelMeta(
-            id = id,
+        var novelMeta = NovelMeta(
             title = title,
             url = novelInfo.url,
             author = novelInfo.author,
             coverUrl = novelInfo.coverUrl
         )
+        novelMeta = novelMeta.copy(
+            id = novelDao.upsertNovelMeta(novelMeta)
+        )
 
         val novel = Novel(
-            inLibrary = false,
             metadata = novelMeta,
         )
         novelMutex.withLock {
@@ -353,11 +360,13 @@ class NovelRepository(context: Context) {
             downloadCover(novelMeta)
         }
 
-        scheduler.schedule(DownloadChapterInfoJob(
-            novel = novel,
-            crawler = crawler,
-            novelRepository = this
-        ))
+        scheduler.schedule(
+            DownloadChapterInfoJob(
+                novel = novel,
+                crawler = crawler,
+                novelRepository = this
+            )
+        )
 
         return novel
     }
@@ -374,7 +383,6 @@ class NovelRepository(context: Context) {
             for (chapterMeta in novel.chapters) {
                 val chapterFile = novel.chapterFiles[chapterMeta.id]
                 if (chapterFile == null || !chapterFile.exists()) {
-                    Log.d(TAG, "FUCK the chapter file isn't there? ${chapterMeta.id} $chapterFile")
                     allChapters.add(
                         OpenChapter(
                             chapterMeta = chapterMeta,
@@ -386,7 +394,6 @@ class NovelRepository(context: Context) {
 
                 val text = chapterFile.readText()
                 if (text.isBlank()) {
-                    Log.d(TAG, "FUCK It's BLANK: |$text|")
                     allChapters.add(
                         OpenChapter(
                             chapterMeta = chapterMeta,
@@ -411,7 +418,6 @@ class NovelRepository(context: Context) {
         _searchResults.value = mutableSetOf()
 
         ioScope.launch {
-            yomiFiles.clearSearchCache()
             val novelInfoList = crawler.searchNovels(query)
             searchMutex.withLock {
                 val result: Set<Long> = novelInfoList.mapNotNull { novelInfo ->
@@ -420,21 +426,24 @@ class NovelRepository(context: Context) {
                         return@mapNotNull existingNovel.metadata.id
                     }
 
-                    val tempId = memoryNovelId.getAndDecrement()
                     val newNovel = addNovel(
-                        id = tempId,
                         novelInfo = novelInfo
                     ) ?: return@mapNotNull null
 
                     // It's unlikely the search info contains everything we want, so schedule to do
                     // a full novel info grab
-                    Log.d(TAG, "searchForNewNovels: Scheduling download for ${newNovel.metadata.title}")
-                    scheduler.schedule(DownloadNovelInfoJob(
-                        crawler = crawler,
-                        novel = newNovel,
-                        novelRepository = this@NovelRepository
-                    ))
-                    tempId
+                    Log.d(
+                        TAG,
+                        "searchForNewNovels: Scheduling download for ${newNovel.metadata.title}"
+                    )
+                    scheduler.schedule(
+                        DownloadNovelInfoJob(
+                            crawler = crawler,
+                            novel = newNovel,
+                            novelRepository = this@NovelRepository
+                        )
+                    )
+                    newNovel.metadata.id
                 }.toHashSet()
                 scheduler.setActiveSearch(result)
                 _searchResults.value = result
@@ -449,45 +458,50 @@ class NovelRepository(context: Context) {
                 val novel = _novels.value[novelId]
                     ?: return@launch
 
-                // Set metadata ID to generate DB id.
-                var novelMeta = novel.metadata.copy(
-                    id = 0
-                )
-                val newId = novelDao.upsertNovelMeta(novelMeta)
-                novelMeta = novelMeta.copy(
-                    id = newId
-                )
-                migratedIds[novel.metadata.id] = newId
-                Log.d(TAG, "addToLibrary: map ${novel.metadata.id} -> $newId")
-
-                val chapters = novel.chapters
-                val newChapters = chapters.map { chapterMeta ->
-                    chapterMeta.copy(
-                        novelId = newId
-                    )
+                if (novel.metadata.inLibrary) {
+                    Log.d(TAG, "addToLibrary: Already in library")
+                    return@launch
                 }
-                novelDao.upsertChapterMeta(newChapters)
 
-                val newCover =
-                    if (novel.coverFile == null)
-                        null
-                    else
-                        yomiFiles.migrateSearchCover(
-                            novelMeta = novelMeta,
-                            coverFile = novel.coverFile
-                        )
+                val novelMeta = novel.metadata.copy(
+                    inLibrary = true
+                )
+                novelDao.upsertNovelMeta(novelMeta)
+                setNovel(
+                    novel.copy(
+                        metadata = novelMeta
+                    )
+                )
+                Log.d(TAG, "addToLibrary done: ${novelMeta.title}")
 
-                // Setting novel in Library to true
-                setNovel(Novel(
-                    inLibrary = true,
-                    metadata = novelMeta,
-                    chapters = newChapters,
-                    coverFile = newCover
-                ))
-
-                newChapters.forEach { chapterMeta ->
+                novel.chapters.forEach { chapterMeta ->
                     downloadChapter(chapterMeta)
                 }
+            }
+        }
+    }
+
+    fun removeFromLibrary(novelId: Long) {
+        defaultScope.launch {
+            novelMutex.withLock {
+                val novel = _novels.value[novelId]
+                    ?: return@launch
+
+                if (!novel.metadata.inLibrary) {
+                    Log.d(TAG, "removeFromLibrary: Already not in library")
+                    return@launch
+                }
+
+                val novelMeta = novel.metadata.copy(
+                    inLibrary = false
+                )
+                novelDao.upsertNovelMeta(novelMeta)
+                setNovel(
+                    novel.copy(
+                        metadata = novelMeta
+                    )
+                )
+                Log.d(TAG, "removeFromLibrary done: ${novelMeta.title}")
             }
         }
     }

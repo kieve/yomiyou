@@ -1,6 +1,6 @@
 package ca.kieve.yomiyou.ui.composable.screen
 
-import android.widget.Toast
+import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -149,13 +149,8 @@ fun NovelInfo(
             Spacer(modifier = Modifier.weight(1.0f))
             Button(
                 onClick = {
-                    if (novel.inLibrary) {
-                        // TODO: Support removing novels
-                        Toast.makeText(
-                            context,
-                            "Not supported",
-                            Toast.LENGTH_SHORT
-                        ).show()
+                    if (novel.metadata.inLibrary) {
+                        novelRepository.removeFromLibrary(novel.metadata.id)
                     } else {
                         novelRepository.addToLibrary(novel.metadata.id)
                     }
@@ -171,7 +166,7 @@ fun NovelInfo(
                 val contentDescription: String
                 val text: String
 
-                if (novel.inLibrary) {
+                if (novel.metadata.inLibrary) {
                     image = Icons.Filled.Favorite
                     contentDescription = stringResource(R.string.novelInfo_removeContentDescription)
                     text = stringResource(R.string.novelInfo_remove)
@@ -202,7 +197,7 @@ private fun ChapterRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable {
-                if (!novel.inLibrary) {
+                if (!novel.metadata.inLibrary) {
                     return@clickable
                 }
                 navController.navigate(

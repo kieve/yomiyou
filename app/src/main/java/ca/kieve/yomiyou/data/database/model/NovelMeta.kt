@@ -21,4 +21,7 @@ data class NovelMeta(
 
     @ColumnInfo(name = "cover_url")
     val coverUrl: String?,
+
+    @ColumnInfo(name = "in_library")
+    val inLibrary: Boolean = false
 )

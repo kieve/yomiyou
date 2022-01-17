@@ -72,7 +72,7 @@ private fun NovelList(
 ) {
     val novels by novelRepository.novels.collectAsState()
     val novelList = novels.values
-        .filter { novel -> novel.inLibrary }
+        .filter { novel -> novel.metadata.inLibrary }
         .toList()
 
     LazyColumn(
