@@ -63,7 +63,7 @@ class YomiActivity : AppCompatActivity() {
 
 @Composable
 fun MyApp(content: @Composable () -> Unit) {
-    YomiyouTheme(true) {
+    YomiyouTheme {
         Surface(
             color = MaterialTheme.colors.background,
             modifier = Modifier
