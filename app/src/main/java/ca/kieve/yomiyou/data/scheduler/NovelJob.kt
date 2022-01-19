@@ -139,7 +139,7 @@ class DownloadChapterJob(
         files.writeDebugFile(
             appContainer = appContainer,
             filePath = "$debugDir/${chapterMeta.id}.extracted.html",
-            contents = extracted ?: "HTML was empty"
+            contents = extracted
         )
 
         val markdown = CopyDown().convert(extracted)

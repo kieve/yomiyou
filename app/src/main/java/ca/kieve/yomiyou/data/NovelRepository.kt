@@ -24,6 +24,8 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.net.URL
+import java.util.SortedMap
+import java.util.TreeMap
 
 class NovelRepository(context: Context) {
     companion object {
@@ -43,8 +45,10 @@ class NovelRepository(context: Context) {
     private val _novels: MutableStateFlow<MutableMap<Long, Novel>> = MutableStateFlow(hashMapOf())
     val novels: StateFlow<Map<Long, Novel>> = _novels
 
-    private val _openNovel: MutableStateFlow<List<OpenChapter>> = MutableStateFlow(listOf())
-    val openNovel: StateFlow<List<OpenChapter>> = _openNovel
+    private var openNovelId: Long? = null
+    private val _openNovel: MutableStateFlow<SortedMap<Long, OpenChapter>> =
+        MutableStateFlow(TreeMap())
+    val openNovel: StateFlow<SortedMap<Long, OpenChapter>> = _openNovel
 
     private val searchMutex = Mutex()
     private val _searchResults: MutableStateFlow<Set<Long>> = MutableStateFlow(hashSetOf())
@@ -208,6 +212,7 @@ class NovelRepository(context: Context) {
                 updatedNovel = novel.copy(
                     metadata = metadata
                 )
+                novelDao.upsertNovelMeta(metadata)
                 setNovel(updatedNovel)
             }
             if (downloadCover) {
@@ -265,6 +270,18 @@ class NovelRepository(context: Context) {
                     chapterFiles = novel.chapterFiles + Pair(chapterMeta.id, chapterFile)
                 )
             )
+        }
+
+        if (openNovelId == chapterMeta.novelId) {
+            _openNovel.value = (
+                    _openNovel.value + Pair(
+                        chapterMeta.id,
+                        OpenChapter(
+                            chapterMeta = chapterMeta,
+                            content = chapterFile.readText()
+                        )
+                    )
+            ).toSortedMap()
         }
     }
 
@@ -373,39 +390,35 @@ class NovelRepository(context: Context) {
 
     fun openNovel(novelId: Long) {
         ioScope.launch {
-            val allChapters = mutableListOf<OpenChapter>()
+            val allChapters = TreeMap<Long, OpenChapter>()
             val novel = getNovel(novelId)
             if (novel == null) {
                 Log.d(TAG, "openNovel: Novel shouldn't be null: $novelId")
                 _openNovel.value = allChapters
+                openNovelId = null
                 return@launch
             }
+            openNovelId = novelId
             for (chapterMeta in novel.chapters) {
                 val chapterFile = novel.chapterFiles[chapterMeta.id]
                 if (chapterFile == null || !chapterFile.exists()) {
-                    allChapters.add(
-                        OpenChapter(
-                            chapterMeta = chapterMeta,
-                            content = "Isn't downloaded yet."
-                        )
+                    allChapters[chapterMeta.id] = OpenChapter(
+                        chapterMeta = chapterMeta,
+                        content = "Isn't downloaded yet."
                     )
                     continue
                 }
 
                 val text = chapterFile.readText()
                 if (text.isBlank()) {
-                    allChapters.add(
-                        OpenChapter(
-                            chapterMeta = chapterMeta,
-                            content = "Chapter file is there, but it's blank ☹️"
-                        )
+                    allChapters[chapterMeta.id] = OpenChapter(
+                        chapterMeta = chapterMeta,
+                        content = "Chapter file is there, but it's blank ☹️"
                     )
                 } else {
-                    allChapters.add(
-                        OpenChapter(
-                            chapterMeta = chapterMeta,
-                            content = text
-                        )
+                    allChapters[chapterMeta.id] = OpenChapter(
+                        chapterMeta = chapterMeta,
+                        content = text
                     )
                 }
             }
@@ -455,7 +468,7 @@ class NovelRepository(context: Context) {
     fun addToLibrary(novelId: Long) {
         defaultScope.launch {
             novelMutex.withLock {
-                val novel = _novels.value[novelId]
+                val novel = getNovel(novelId)
                     ?: return@launch
 
                 if (novel.metadata.inLibrary) {
@@ -484,7 +497,7 @@ class NovelRepository(context: Context) {
     fun removeFromLibrary(novelId: Long) {
         defaultScope.launch {
             novelMutex.withLock {
-                val novel = _novels.value[novelId]
+                val novel = getNovel(novelId)
                     ?: return@launch
 
                 if (!novel.metadata.inLibrary) {

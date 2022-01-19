@@ -36,6 +36,7 @@ fun ReaderScreen(
     }
 
     val chapters by novelRepository.openNovel.collectAsState()
+    val chapterList = chapters.values.toList()
 
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
@@ -56,7 +57,7 @@ fun ReaderScreen(
                 end = 8.dp
             )
     ) {
-        items(chapters) { chapter ->
+        items(chapterList) { chapter ->
             Text(
                 text = "Chapter ${chapter.chapterMeta.id}: ${chapter.chapterMeta.title}",
                 style = MaterialTheme.typography.h6,

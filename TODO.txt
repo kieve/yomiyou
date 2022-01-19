@@ -1,15 +1,10 @@
 - Turn these into issues in GitHub (maybe after the first POC is complete)
-- audit novel repository; make sure:
-    - When setNovel is called, novelDao is updated
-    - when novelDao is udpated, setNovel is called
-    - Likely refactor this into centralized common code that manages all mutability and exposes a'
-      very simple interface
-- revisit "openNovel" so chapters appear as they are downloaded while reading.
-- Purge data for novels not saved to the library
-- Allow reading chapters ad-hoc on novels not added to library
+- Theme the app
 - UI / User Feedback for downloading and updating chapters
 - Implement more sources! (at least 3, so I can stop assuming there's only 1)
-- Theme the app
+
+- Purge data for novels not saved to the library
+- Allow reading chapters ad-hoc on novels not added to library
 -----
 Parse bugs:
 
