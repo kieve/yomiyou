@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.FabPosition
+import androidx.compose.material.FloatingActionButton
 import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
 import androidx.compose.material.MaterialTheme
@@ -14,6 +16,7 @@ import androidx.compose.material.Text
 import androidx.compose.material.TopAppBar
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -41,7 +44,7 @@ fun NovelListScreen(yomiContext: YomiContext) {
     Scaffold(
         topBar = {
             TopAppBar(
-                backgroundColor = MaterialTheme.colors.primary,
+                backgroundColor = MaterialTheme.colors.background,
                 title = {
                     Text(stringResource(R.string.novelList_title))
                 },
@@ -59,6 +62,19 @@ fun NovelListScreen(yomiContext: YomiContext) {
                     }
                 }
             )
+        },
+        floatingActionButtonPosition = FabPosition.End,
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = {
+                    novelRepository.debug()
+                }
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Warning,
+                    contentDescription = "Debug"
+                )
+            }
         }
     ) {
         NovelList(navController, novelRepository)

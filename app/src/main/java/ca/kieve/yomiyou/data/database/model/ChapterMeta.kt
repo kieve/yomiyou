@@ -3,6 +3,7 @@ package ca.kieve.yomiyou.data.database.model
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
+import ca.kieve.yomiyou.data.database.HasId
 
 @Entity(
     tableName = "chapter_meta",
@@ -19,7 +20,7 @@ import androidx.room.ForeignKey
 data class ChapterMeta(
     // Not auto-generated, this maps to the chapter index from the crawled website
     @ColumnInfo(name = "id")
-    val id: Long,
+    override val id: Long,
 
     @ColumnInfo(name = "novel_id", index = true)
     val novelId: Long,
@@ -29,4 +30,4 @@ data class ChapterMeta(
 
     @ColumnInfo(name = "url")
     val url: String
-)
+) : HasId

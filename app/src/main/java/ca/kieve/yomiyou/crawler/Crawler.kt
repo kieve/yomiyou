@@ -1,7 +1,6 @@
 package ca.kieve.yomiyou.crawler
 
 import android.icu.text.UnicodeSet
-import android.util.Log
 import ca.kieve.yomiyou.crawler.model.ChapterInfo
 import ca.kieve.yomiyou.crawler.model.ChapterListInfo
 import ca.kieve.yomiyou.crawler.model.NovelInfo

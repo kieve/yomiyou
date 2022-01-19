@@ -37,9 +37,11 @@ class NovelRepository(context: Context) {
 
     private val appContainer = (context as YomiApplication).container
     private val yomiFiles = appContainer.files
-    private val novelDao = appContainer.database.novelDao()
     private val scheduler = appContainer.novelScheduler
     private val crawler = appContainer.crawler
+
+    private val novelDao = appContainer.database.novelDao()
+    private val chapterDao = appContainer.database.chapterDao()
 
     private val novelMutex = Mutex()
     private val _novels: MutableStateFlow<MutableMap<Long, Novel>> = MutableStateFlow(hashMapOf())
@@ -59,6 +61,13 @@ class NovelRepository(context: Context) {
     init {
         ioScope.launch {
             loadNovels()
+        }
+    }
+    
+    fun debug() {
+        ioScope.launch { 
+            val allChapters = chapterDao.getAllChapterMeta()
+            Log.d(TAG, "FUCK ${allChapters.size}")
         }
     }
 
@@ -123,7 +132,7 @@ class NovelRepository(context: Context) {
     }
 
     private suspend fun loadNovelChapters(novelMeta: NovelMeta) = withContext(Dispatchers.IO) {
-        val chapters = novelDao.getNovelChapters(novelMeta.id)
+        val chapters = chapterDao.getNovelChapters(novelMeta.id)
         novelMutex.withLock {
             val novel = getNovel(novelMeta.id)
             if (novel == null) {
@@ -212,7 +221,7 @@ class NovelRepository(context: Context) {
                 updatedNovel = novel.copy(
                     metadata = metadata
                 )
-                novelDao.upsertNovelMeta(metadata)
+                novelDao.upsert(metadata)
                 setNovel(updatedNovel)
             }
             if (downloadCover) {
@@ -249,7 +258,8 @@ class NovelRepository(context: Context) {
             val sortedChapters = chapterMap.values.toList()
                 .sortedBy { chapterMeta -> chapterMeta.id }
 
-            novelDao.upsertChapterMeta(sortedChapters)
+            Log.d(TAG, "FUCK: Saving chapters: ${sortedChapters.size}")
+            chapterDao.upsert(sortedChapters)
             setNovel(
                 novel.copy(
                     chapters = sortedChapters
@@ -362,7 +372,7 @@ class NovelRepository(context: Context) {
             coverUrl = novelInfo.coverUrl
         )
         novelMeta = novelMeta.copy(
-            id = novelDao.upsertNovelMeta(novelMeta)
+            id = novelDao.upsert(novelMeta)
         )
 
         val novel = Novel(
@@ -479,7 +489,7 @@ class NovelRepository(context: Context) {
                 val novelMeta = novel.metadata.copy(
                     inLibrary = true
                 )
-                novelDao.upsertNovelMeta(novelMeta)
+                novelDao.upsert(novelMeta)
                 setNovel(
                     novel.copy(
                         metadata = novelMeta
@@ -508,7 +518,7 @@ class NovelRepository(context: Context) {
                 val novelMeta = novel.metadata.copy(
                     inLibrary = false
                 )
-                novelDao.upsertNovelMeta(novelMeta)
+                novelDao.upsert(novelMeta)
                 setNovel(
                     novel.copy(
                         metadata = novelMeta
