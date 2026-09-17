@@ -70,9 +70,10 @@ fun ReaderScreen(
             )
             MarkdownText(
                 markdown = chapter.content,
-                fontSize = 14.sp,
-                color = MaterialTheme.colors.onSurface,
-                style = MaterialTheme.typography.body1,
+                style = MaterialTheme.typography.body1.copy(
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colors.onSurface
+                ),
                 modifier = Modifier
                     .padding(
                         bottom = 8.dp

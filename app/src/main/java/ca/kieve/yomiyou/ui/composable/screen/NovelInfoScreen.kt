@@ -24,7 +24,7 @@ import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Scaffold
 import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.runtime.Composable
@@ -44,7 +44,7 @@ import ca.kieve.yomiyou.YomiScreen
 import ca.kieve.yomiyou.data.NovelRepository
 import ca.kieve.yomiyou.data.database.model.ChapterMeta
 import ca.kieve.yomiyou.data.model.Novel
-import coil.compose.rememberImagePainter
+import coil3.compose.rememberAsyncImagePainter
 
 @Composable
 fun NovelInfoScreen(
@@ -73,7 +73,7 @@ fun NovelInfoScreen(
                     }
                 ) {
                     Icon(
-                        imageVector = Icons.Filled.ArrowBack,
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription =
                         stringResource(R.string.yomi_backContentDescription)
                     )
@@ -124,7 +124,7 @@ fun NovelInfo(
         modifier = Modifier.height(IntrinsicSize.Min)
     ) {
         Image(
-            painter = rememberImagePainter(novel.coverFile),
+            painter = rememberAsyncImagePainter(novel.coverFile),
             contentDescription = stringResource(
                 id = R.string.novelCard_imageContentDescription,
                 title),

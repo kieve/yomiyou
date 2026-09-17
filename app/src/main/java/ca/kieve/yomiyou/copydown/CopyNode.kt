@@ -3,6 +3,7 @@ package ca.kieve.yomiyou.copydown
 import ca.kieve.yomiyou.copydown.util.collapseWhitespace
 import ca.kieve.yomiyou.copydown.util.isNodeType1
 import ca.kieve.yomiyou.copydown.util.isNodeType3
+import ca.kieve.yomiyou.copydown.util.textContent
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
 import org.jsoup.nodes.Node
@@ -75,11 +76,7 @@ class CopyNode {
         }
 
         fun isBlank(element: Node): Boolean {
-            val textContent = if (element is Element) {
-                element.wholeText()
-            } else {
-                element.outerHtml()
-            }
+            val textContent = element.textContent()
             return !isVoid(element)
                     && !isMeaningfulWhenBlank(element)
                     && ALL_WHITESPACE_REGEX.containsMatchIn(textContent)
@@ -126,13 +123,8 @@ class CopyNode {
             )
         }
 
-        val textContent = if (element is Element) {
-            element.wholeText()
-        } else {
-            element.outerHtml()
-        }
+        val textContent = element.textContent()
 
-        // TODO original uses textContent
         val hasLeading = LEADING_WHITESPACE_REGEX.containsMatchIn(textContent)
         val hasTrailing = TRAILING_WHITESPACE_REGEX.containsMatchIn(textContent)
 

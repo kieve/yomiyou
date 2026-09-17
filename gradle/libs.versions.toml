@@ -1,0 +1,45 @@
+[versions]
+agp = "9.4.0"
+kotlin = "2.4.20"
+ksp = "2.3.12"
+room = "2.8.5"
+composeBom = "2026.09.00"
+coil = "3.6.2"
+junit = "6.1.3"
+
+[libraries]
+androidx-core-ktx = { module = "androidx.core:core-ktx", version = "1.19.0" }
+androidx-appcompat = { module = "androidx.appcompat:appcompat", version = "1.8.0" }
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version = "1.13.0" }
+androidx-lifecycle-runtime-ktx = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version = "2.11.0" }
+androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version = "2.10.1" }
+androidx-documentfile = { module = "androidx.documentfile:documentfile", version = "1.1.0" }
+material = { module = "com.google.android.material:material", version = "1.14.0" }
+
+compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
+compose-material = { module = "androidx.compose.material:material" }
+compose-material-icons-core = { module = "androidx.compose.material:material-icons-core" }
+compose-ui = { module = "androidx.compose.ui:ui" }
+compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
+compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
+compose-ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4" }
+
+room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
+room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
+room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
+
+coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
+compose-markdown = { module = "com.github.jeziellago:compose-markdown", version = "0.7.2" }
+jsoup = { module = "org.jsoup:jsoup", version = "1.23.2" }
+
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+jackson-kotlin = { module = "com.fasterxml.jackson.module:jackson-module-kotlin", version = "2.22.2" }
+androidx-test-junit = { module = "androidx.test.ext:junit", version = "1.3.0" }
+androidx-test-espresso = { module = "androidx.test.espresso:espresso-core", version = "3.7.0" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+room = { id = "androidx.room", version.ref = "room" }

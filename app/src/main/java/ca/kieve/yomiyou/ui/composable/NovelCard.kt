@@ -19,8 +19,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import ca.kieve.yomiyou.R
 import ca.kieve.yomiyou.data.model.Novel
-import coil.compose.ImagePainter
-import coil.compose.rememberImagePainter
+import androidx.compose.ui.graphics.painter.Painter
+import coil3.compose.rememberAsyncImagePainter
 import java.io.File
 
 @Composable
@@ -31,7 +31,7 @@ fun NovelCard(
     NovelCard(
         title = novel.metadata.title,
         subTitle = stringResource(id = R.string.novelCard_chapterCount, novel.chapters.size),
-        coverPainter = rememberImagePainter(novel.coverFile),
+        coverPainter = rememberAsyncImagePainter(novel.coverFile),
         modifier = modifier
     )
 }
@@ -46,7 +46,7 @@ fun NovelCard(
     NovelCard(
         title = title,
         subTitle = subTitle,
-        coverPainter = rememberImagePainter(coverFile),
+        coverPainter = rememberAsyncImagePainter(coverFile),
         modifier
     )
 }
@@ -55,7 +55,7 @@ fun NovelCard(
 fun NovelCard(
     title: String,
     subTitle: String,
-    coverPainter: ImagePainter,
+    coverPainter: Painter,
     modifier: Modifier = Modifier
 ) {
     Card(

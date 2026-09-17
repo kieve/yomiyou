@@ -9,17 +9,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.platform.LocalFocusManager
-import com.google.accompanist.insets.LocalWindowInsets
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.isImeVisible
 
 /**
  * TODO: Remove this when 1.1 of compose is released.
  *       https://issuetracker.google.com/issues/192433071
  */
+@OptIn(ExperimentalLayoutApi::class)
 fun Modifier.clearFocusOnKeyboardDismiss(): Modifier = composed {
     var isFocused by remember { mutableStateOf(false) }
     var keyboardAppearedSinceLastFocused by remember { mutableStateOf(false) }
     if (isFocused) {
-        val imeIsVisible = LocalWindowInsets.current.ime.isVisible
+        val imeIsVisible = WindowInsets.isImeVisible
         val focusManager = LocalFocusManager.current
         LaunchedEffect(imeIsVisible) {
             if (imeIsVisible) {

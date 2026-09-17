@@ -4,6 +4,7 @@ import ca.kieve.yomiyou.copydown.style.CodeBlockStyle
 import ca.kieve.yomiyou.copydown.style.HeadingStyle
 import ca.kieve.yomiyou.copydown.style.LinkReferenceStyle
 import ca.kieve.yomiyou.copydown.style.LinkStyle
+import ca.kieve.yomiyou.copydown.util.textContent
 import org.jsoup.nodes.Element
 import org.jsoup.nodes.Node
 import java.util.Collections.nCopies
@@ -165,9 +166,7 @@ class Rules(private val options: Options = Options()) {
                             && element.childNode(0).nodeName() == "code"
                 },
                 replacement = { _, element ->
-                    // TODO check textContent
-                    val content = (element.childNode(0) as Element)
-                        .wholeText()
+                    val content = element.childNode(0).textContent()
                         .replace("\n", "\n    ")
                     "\n\n    $content"
                 }
@@ -185,11 +184,7 @@ class Rules(private val options: Options = Options()) {
                     val languageMatches = """language-(\S+)""".toRegex().find(childClass)
                     val language = languageMatches?.groupValues?.get(1) ?: ""
 
-                    var code = if (element.childNode(0) is Element) {
-                        (element.childNode(0) as Element).wholeText()
-                    } else {
-                        element.childNode(0).outerHtml()
-                    }
+                    var code = element.childNode(0).textContent()
 
                     val fenceChar = options.fence.substring(0, 1)
                     var fenceSize = 3
