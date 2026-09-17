@@ -1,0 +1,7 @@
+# Rendered-DOM fixtures (copy(document.documentElement.outerHTML) in DevTools), captured 2026-09-17.
+# Novel used: The Primal Hunter. Chapter 2 chosen so previous/next links both exist.
+search-results.html  https://novelphoenix.com/search?keyword=hunter&type=title
+novel-info.html      https://novelphoenix.com/novel/the-primal-hunter
+chapters-page1.html  https://novelphoenix.com/novel/the-primal-hunter/chapters
+chapters-page2.html  https://novelphoenix.com/novel/the-primal-hunter/chapters?page=2
+chapter-page.html    https://novelphoenix.com/novel/the-primal-hunter/chapter-2
