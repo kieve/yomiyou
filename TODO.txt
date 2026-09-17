@@ -1,6 +1,10 @@
 - Turn these into issues in GitHub (maybe after the first POC is complete)
+
 - UI / User Feedback for downloading and updating chapters
 - Implement more sources! (at least 3, so I can stop assuming there's only 1)
+- Track reading progress
+- Update scheduler to prioritize downloading chapters close to your current reading position.
+- Add bottom nav to separate library from "new" books. Have topbar search the current library.
 
 - Purge data for novels not saved to the library
 - Allow reading chapters ad-hoc on novels not added to library

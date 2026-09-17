@@ -18,6 +18,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -45,7 +46,7 @@ class NovelRepository(context: Context) {
 
     private val novelMutex = Mutex()
     private val _novels: MutableStateFlow<MutableMap<Long, Novel>> = MutableStateFlow(hashMapOf())
-    val novels: StateFlow<Map<Long, Novel>> = _novels
+    val novels: StateFlow<Map<Long, Novel>> = _novels.asStateFlow()
 
     private var openNovelId: Long? = null
     private val _openNovel: MutableStateFlow<SortedMap<Long, OpenChapter>> =
