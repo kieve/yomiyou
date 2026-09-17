@@ -3,18 +3,15 @@ package ca.kieve.yomiyou.scraper
 interface Scraper {
     /**
      * @param[url] URL to load
-     * @return The HTML of the loaded page, when finished loading.
+     * @param[waitFor] CSS selector that must be present before the page counts as loaded. Pass
+     *                 the content selector so anti-bot interstitials are waited out instead of
+     *                 returned.
+     * @param[timeoutMs] Give up after this long.
+     * @return The HTML of the loaded page, or null on timeout.
      */
-    suspend fun loadPage(url: String): String?
-
-    /**
-     * @return The HTML of the currently loaded page.
-     */
-    suspend fun getCurrentPageHtml(): String?
-
-    /**
-     * @param[js] JavaScript to execute
-     * @return The string result of executing the JavaScript.
-     */
-    suspend fun executeJs(js: String): String?
+    suspend fun loadPage(
+        url: String,
+        waitFor: String? = null,
+        timeoutMs: Long = 30_000
+    ): String?
 }

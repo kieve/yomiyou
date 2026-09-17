@@ -26,7 +26,12 @@ class AppContainer(val appContext: Context) {
         NovelScheduler()
     }
 
+    // WebView must be created on the main thread; first touch is from Compose, which is.
+    val scraper: WebViewScraper by lazy {
+        WebViewScraper(appContext)
+    }
+
     val crawler: Crawler by lazy {
-        Crawler(WebViewScraper(appContext))
+        Crawler(scraper)
     }
 }

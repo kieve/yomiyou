@@ -65,14 +65,15 @@ fun NovelListScreen(yomiContext: YomiContext) {
         },
         floatingActionButtonPosition = FabPosition.End,
         floatingActionButton = {
+            // Escape hatch: look at what the scraper's WebView is stuck on and solve it by hand.
             FloatingActionButton(
                 onClick = {
-                    novelRepository.debug()
+                    navController.navigate(YomiScreen.WebViewNav.route)
                 }
             ) {
                 Icon(
                     imageVector = Icons.Filled.Warning,
-                    contentDescription = "Debug"
+                    contentDescription = "Scraper browser"
                 )
             }
         }

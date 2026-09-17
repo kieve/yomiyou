@@ -4,7 +4,8 @@ import android.util.Log
 import ca.kieve.yomiyou.util.getTag
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -14,7 +15,7 @@ class NovelScheduler {
         val TAG = getTag()
     }
 
-    private val defaultScope = CoroutineScope(context = Job() + Dispatchers.Default)
+    private val defaultScope = CoroutineScope(context = SupervisorJob() + Dispatchers.Default)
 
     private val runMutex = Mutex()
     private val schedulerMutex = Mutex()
@@ -119,28 +120,31 @@ class NovelScheduler {
         if (!runMutex.tryLock()) {
             return
         }
-        runJobs()
-        Log.d(TAG, "tryRunJobs: All jobs finished")
-        runMutex.unlock()
+        try {
+            runJobs()
+            Log.d(TAG, "tryRunJobs: All jobs finished")
+        } finally {
+            runMutex.unlock()
+        }
     }
 
     private suspend fun runJobs() {
         while (true) {
-            val job: MultiStepJob?
-            schedulerMutex.withLock {
-                job = mainQueue.firstOrNull()
-                if (job !== null && job.isDone) {
-                    mainQueue.removeFirst()
-                }
-            }
-            if (job == null) {
-                return
-            }
+            val job = schedulerMutex.withLock {
+                mainQueue.firstOrNull()?.also { if (it.isDone) mainQueue.removeFirst() }
+            } ?: return
             if (job.isDone) {
                 continue
             }
             Log.d(TAG, "running job: ${job.novel.metadata.id}")
-            job.executeNextStep()
+            try {
+                job.executeNextStep()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "job failed for novel ${job.novel.metadata.id}, dropping it", e)
+                schedulerMutex.withLock { mainQueue.remove(job) }
+            }
         }
     }
 }

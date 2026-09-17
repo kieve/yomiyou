@@ -65,13 +65,6 @@ class NovelRepository(context: Context) {
         }
     }
     
-    fun debug() {
-        ioScope.launch { 
-            val allChapters = chapterDao.getAllChapterMeta()
-            Log.d(TAG, "FUCK ${allChapters.size}")
-        }
-    }
-
     private fun setNovel(novel: Novel) {
         if (!novelMutex.isLocked) {
             throw IllegalStateException("Novel mutex lock must be held to update.")

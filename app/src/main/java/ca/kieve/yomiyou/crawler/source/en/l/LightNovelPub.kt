@@ -185,7 +185,7 @@ class LightNovelPub : SourceCrawler {
     }
 
     override suspend fun downloadChapter(crawler: Crawler, url: String): Element? {
-        val soup = crawler.getSoup(url)
+        val soup = crawler.getSoup(url, waitFor = "#chapter-container")
         val body = soup.selectFirst("#chapter-container")
         if (body == null) {
             Log.d(TAG, "downloadChapter: Body is null.")

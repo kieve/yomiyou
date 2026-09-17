@@ -152,8 +152,8 @@ class Crawler(val scraper: Scraper) {
         return aSource.source.areSameNovel(aUrl, bUrl)
     }
 
-    suspend fun getSoup(url: String): Document {
-        val html = scraper.loadPage(url)
+    suspend fun getSoup(url: String, waitFor: String? = null): Document {
+        val html = scraper.loadPage(url, waitFor)
         return Jsoup.parse(html ?: "", url)
     }
 

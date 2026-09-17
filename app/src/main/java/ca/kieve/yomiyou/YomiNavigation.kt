@@ -11,6 +11,7 @@ import ca.kieve.yomiyou.ui.composable.screen.NovelInfoScreen
 import ca.kieve.yomiyou.ui.composable.screen.ReaderScreen
 import ca.kieve.yomiyou.ui.composable.screen.NovelListScreen
 import ca.kieve.yomiyou.ui.composable.screen.NovelSearchScreen
+import ca.kieve.yomiyou.ui.composable.screen.WebViewScreen
 
 @Composable
 fun YomiNavigation(appContainer: AppContainer) {
@@ -25,6 +26,9 @@ fun YomiNavigation(appContainer: AppContainer) {
         }
         composable(route = YomiScreen.NovelSearchNav.route) {
             NovelSearchScreen(yomiContext)
+        }
+        composable(route = YomiScreen.WebViewNav.route) {
+            WebViewScreen(yomiContext)
         }
         composable(
             route = YomiScreen.NovelInfoNav.route + "/{novelId}",

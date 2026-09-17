@@ -5,6 +5,7 @@ sealed class YomiScreen(val route: String) {
     object NovelSearchNav: YomiScreen("novel_search")
     object NovelInfoNav: YomiScreen("novel_info")
     object ReaderNav: YomiScreen("reader")
+    object WebViewNav: YomiScreen("webview")
 
     fun withArgs(vararg args: String): String {
         return buildString {

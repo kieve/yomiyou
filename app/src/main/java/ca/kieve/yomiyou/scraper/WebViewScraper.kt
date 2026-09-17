@@ -10,94 +10,78 @@ import android.util.Log
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import ca.kieve.yomiyou.util.getTag
-import kotlinx.coroutines.CompletableJob
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
+import org.json.JSONObject
 import java.io.StringReader
+import kotlin.coroutines.resume
 
 class WebViewScraper(context: Context) : Scraper {
-    private sealed class State {
-        object Default: State()
-        object LoadPage: State()
-    }
-
     companion object {
-        private var TAG = getTag()
+        private val TAG = getTag()
         private const val GET_HTML_JS = "(function() { return ('<html>'+document.getElementsByTagName('html')[0].innerHTML+'</html>'); })();"
+        private const val POLL_MS = 250L
     }
 
-    private val webViewMutex = Mutex()
-    private var state: State = State.Default
-    private var webViewUpdateJob: CompletableJob = Job()
-    private var javascriptResult: String? = null
+    private val mutex = Mutex()
+    private val mainThread = Handler(Looper.getMainLooper())
+    private var pageFinished = CompletableDeferred<Unit>()
 
     @SuppressLint("SetJavaScriptEnabled")
     val webView = WebView(context).apply {
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
-        settings.databaseEnabled = true
+        // Bot checks fingerprint the stock WebView UA; make it look like Chrome.
+        settings.userAgentString = settings.userAgentString
+            .replace("; wv", "")
+            .replace("Version/4.0 ", "")
 
         webViewClient = object : WebViewClient() {
-            override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
-                return false
-            }
-
             override fun onPageFinished(view: WebView?, url: String?) {
-                super.onPageFinished(view, url)
-                if (url == "about:blank") {
-                    return
-                }
-                Log.d(TAG, "onPageFinished (${state.javaClass.simpleName}): $url")
-                if (state == State.LoadPage) {
-                    internalExecuteJs(GET_HTML_JS)
+                Log.d(TAG, "onPageFinished: $url")
+                if (url != "about:blank") {
+                    pageFinished.complete(Unit)
                 }
             }
         }
         loadUrl("about:blank")
     }
 
-    private fun internalExecuteJs(js: String) {
-        Handler(Looper.getMainLooper()).post {
-            webView.evaluateJavascript(js) { result ->
-                val jsonReader = JsonReader(StringReader(result))
-                jsonReader.isLenient = true
-                javascriptResult = if (jsonReader.peek() == JsonToken.STRING) {
-                    jsonReader.nextString()
-                } else {
-                    null
+    override suspend fun loadPage(url: String, waitFor: String?, timeoutMs: Long): String? =
+        mutex.withLock {
+            Log.d(TAG, "loadPage: $url (waitFor=$waitFor)")
+            pageFinished = CompletableDeferred()
+            mainThread.post { webView.loadUrl(url) }
+
+            val html = withTimeoutOrNull(timeoutMs) {
+                pageFinished.await()
+                // onPageFinished also fires for anti-bot interstitials and redirects, so keep
+                // polling the live DOM until the content we actually want is there.
+                if (waitFor != null) {
+                    val check = "String(!!document.querySelector(${JSONObject.quote(waitFor)}))"
+                    while (evalJs(check) != "true") {
+                        delay(POLL_MS)
+                    }
                 }
-                webViewUpdateJob.complete()
+                evalJs(GET_HTML_JS)
             }
-        }
-    }
-
-    override suspend fun loadPage(url: String): String? {
-        webViewMutex.withLock {
-            Log.d(TAG, "loadPage: $url")
-            state = State.LoadPage
-            webViewUpdateJob = Job()
-            Handler(Looper.getMainLooper()).post {
-                webView.loadUrl(url)
+            if (html == null) {
+                Log.w(TAG, "loadPage: timed out after ${timeoutMs}ms: $url")
             }
-            webViewUpdateJob.join()
-            state = State.Default
-            return javascriptResult
+            html
         }
-    }
 
-    override suspend fun getCurrentPageHtml(): String? {
-        Log.d(TAG, "getCurrentPageHtml")
-        return executeJs(GET_HTML_JS)
-    }
-
-    override suspend fun executeJs(js: String): String? {
-        webViewMutex.withLock {
-            Log.d(TAG, "executeJs")
-            webViewUpdateJob = Job()
-            internalExecuteJs(js)
-            webViewUpdateJob.join()
-            return javascriptResult
+    /** Runs [js] on the main thread; returns its result only if it is a string. */
+    private suspend fun evalJs(js: String): String? = suspendCancellableCoroutine { cont ->
+        mainThread.post {
+            webView.evaluateJavascript(js) { result ->
+                val reader = JsonReader(StringReader(result)).apply { isLenient = true }
+                cont.resume(if (reader.peek() == JsonToken.STRING) reader.nextString() else null)
+            }
         }
     }
 }
