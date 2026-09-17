@@ -37,9 +37,7 @@ Android WebView (a real browser), store every chapter locally as Markdown, read 
 ```
 WebViewScraper.loadPage(url)             scraper/WebViewScraper.kt
   -> Crawler.getSoup / Source.*          crawler/Crawler.kt, crawler/source/en/l/LightNovelPub.kt
-  -> Crawler.cleanContents               strip ads / bad tags (keep)
-  -> Crawler.extractContents             Python-port flattening (DELETE, see bug 3)
-  -> CopyDown().convert(html)            copydown/  HTML -> Markdown
+  -> Crawler.toMarkdown                  cleanContents (strip ads / bad tags) -> CopyDown -> blacklist lines
   -> YomiFiles.writeChapter              data/YomiFiles.kt  filesDir/novels/<id>/<chapterIdx>
   -> NovelRepository.onChapterDownloaded data/NovelRepository.kt  in-memory mirror
 Room: NovelMeta, ChapterMeta             data/database/
@@ -59,7 +57,7 @@ UI:  YomiNavigation -> NovelList / NovelSearch / NovelInfo / Reader   ui/composa
   `document.querySelector(<content selector>)` via `evaluateJavascript` until present
   or timeout; on timeout show the (currently never-attached) WebView in an
   `AndroidView` so the user can solve a challenge by hand; strip `; wv` from the UA.
-- [ ] **3. `Crawler.extractContents` causes both `TODO.txt` parse bugs.** It flattens
+- [x] **3. `Crawler.extractContents` causes both `TODO.txt` parse bugs.** *(fixed 2026-09-17: `Crawler.toMarkdown` = cleanContents → CopyDown → strip non-printables → substitutions → blacklist lines; `CrawlerTest` covers both TODO cases)* It flattens
   HTML into `<p>` lines before CopyDown (inline `<i>` becomes its own paragraph;
   `"<%s>%s<%s>"` / `"<p>$s<p>"` never close tags so italics/lists bleed into the next
   paragraph). Verified 2026-09-17: CopyDown alone renders both cases correctly.
@@ -82,11 +80,17 @@ UI:  YomiNavigation -> NovelList / NovelSearch / NovelInfo / Reader   ui/composa
 - [ ] **8. SAF misuse.** Folder picker forced on first launch; 3 files per chapter
   written via `DocumentFile.findFile` (directory listing per call); every file starts
   with `"Hello, world!\n"`. Rework per the SAF export decision above.
-- [ ] **9. `Crawler` can't be unit-tested on the JVM** — `android.icu.text.UnicodeSet`
+- [x] **9. `Crawler` can't be unit-tested on the JVM** *(fixed 2026-09-17: Kotlin `Regex`)* — `android.icu.text.UnicodeSet`
   throws in stub android.jar. Use Kotlin `Regex("[\\p{Cf}\\p{Cc}]")`.
 
 ## Structural work
 
+- [ ] **A0. Scraper page capture (do together with A).** Replaces the deleted SAF debug
+  files: `WebViewScraper.loadPage` writes the HTML it captured (or the page it was stuck
+  on at timeout) to `cacheDir/scraper/<timestamp>-<slug>.html`, keeping the last ~20.
+  Always on, no permission, bounded. Read via Device Explorer
+  (`data/data/ca.kieve.yomiyou/cache/scraper/`) or `adb shell run-as`. Doubles as the
+  way to grab fixtures for pages that can't be fetched from a desktop.
 - [ ] **A. Stateless source plugins + fixture tests.** Interface: `search(q)`,
   `novel(url)`, `chapters(url)` (source handles its own pagination — the
   `ChapterListInfo` / `getChapterListPage` / `MultiStepJob` machinery exists only for
@@ -111,13 +115,13 @@ UI:  YomiNavigation -> NovelList / NovelSearch / NovelInfo / Reader   ui/composa
 
 ## Delete list
 
-- [ ] `YomiViewModel` (empty)
+- [x] `YomiViewModel` (empty)
 - [x] `NovelRepository.debug()` (FAB now opens `WebViewScreen`)
-- [ ] Debug-file code: `YomiFiles.registerDebugFiles/writeDebugFile`, `FileUtil.kt`
-  `DocumentFile` helpers, first-launch picker in `YomiActivity` (replaced by C)
-- [ ] `BaseDao.upsert` → `@Upsert`; `HasId`
-- [ ] `Crawler.absoluteUrl` → `absUrl("href")`
-- [ ] `Crawler.extractContents` / `internalExtractContents` (bug 3)
+- [x] Debug-file code: `YomiFiles.registerDebugFiles/writeDebugFile`, `FileUtil.kt`
+  `DocumentFile` helpers, first-launch picker in `YomiActivity`, `documentfile` dep (C re-adds SAF deliberately)
+- [x] `BaseDao.upsert` → `@Upsert`; `HasId`
+- [x] `Crawler.absoluteUrl` → `absUrl("href")`
+- [x] `Crawler.extractContents` / `internalExtractContents` (bug 3)
 - [ ] `LightNovelPub.kt` + Jackson from `implementation`
 - [ ] `Theme.MaterialComponents` XML theme + `material` (views) + `appcompat` deps once
   on `ComponentActivity` (with E)
@@ -133,7 +137,7 @@ active-novel priority; `Crawler.cleanContents` tag/CSS strip lists; `LogUtil.get
    fallback). Everything else needs a fetch that can't hang or die silently.
 2. [ ] Capture novelphoenix fixtures with a desktop browser → write source + fixture
    tests (A). Delete LightNovelPub.
-3. [ ] Bug 3 (delete `extractContents`), bug 9, rest of the delete list.
+3. [x] Bug 3 (delete `extractContents`), bug 9, rest of the delete list (LightNovelPub + theme XML remain, tied to steps 2 / E).
 4. [ ] Re-architecture: B, C, D, E, bug 5 (chapter keying), bug 4 (single-chapter reader),
    bug 6 falls out of B.
 

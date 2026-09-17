@@ -9,7 +9,7 @@
 - Purge data for novels not saved to the library
 - Allow reading chapters ad-hoc on novels not added to library
 -----
-Parse bugs:
+Parse bugs (both FIXED 2026-09-17: Crawler.extractContents flattening removed, CopyDown gets the HTML directly; regression cases in CrawlerTest):
 
 ---
 https://www.lightnovelpub.com/novel/omniscient-readers-viewpoint/265-chapter-67

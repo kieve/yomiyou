@@ -119,7 +119,7 @@ class LightNovelPub : SourceCrawler {
         val possibleImage = soup.selectFirst(".glass-background img")
         result.coverUrl =
                 if (possibleImage != null)
-                    crawler.absoluteUrl(possibleImage.attr("src"))
+                    possibleImage.absUrl("src")
                 else ""
         Log.d(TAG, "getInfo: Novel cover: ${result.coverUrl}")
 
@@ -155,7 +155,7 @@ class LightNovelPub : SourceCrawler {
         for (a in soup.select("ul.chapter-list li a")) {
             firstPageChapters.add(ChapterInfo(
                 id = firstPageChapters.size + 1L,
-                url = crawler.absoluteUrl(a.attr("href")),
+                url = a.absUrl("href"),
                 title = a.select(".chapter-title").text())
             )
         }
@@ -176,7 +176,7 @@ class LightNovelPub : SourceCrawler {
         for (a in soup.select("ul.chapter-list li a")) {
             result.add(ChapterInfo(
                 id = result.size + 1L,
-                url = crawler.absoluteUrl(a.attr("href")),
+                url = a.absUrl("href"),
                 title = a.select(".chapter-title").text())
             )
         }

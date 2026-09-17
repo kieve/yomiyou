@@ -49,7 +49,6 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.navigation.compose)
-    implementation(libs.androidx.documentfile)
 
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.material)
