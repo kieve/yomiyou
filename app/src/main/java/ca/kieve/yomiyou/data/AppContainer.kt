@@ -8,15 +8,11 @@ import ca.kieve.yomiyou.scraper.WebViewScraper
 
 class AppContainer(val appContext: Context) {
     val database: YomiDatabase by lazy {
-        YomiDatabase.getDatabase(appContext)
+        YomiDatabase.create(appContext)
     }
 
     val files: YomiFiles by lazy {
         YomiFiles(appContext)
-    }
-
-    val novelRepository: NovelRepository by lazy {
-        NovelRepository(appContext)
     }
 
     val novelScheduler: NovelScheduler by lazy {
@@ -30,5 +26,9 @@ class AppContainer(val appContext: Context) {
 
     val crawler: Crawler by lazy {
         Crawler(scraper)
+    }
+
+    val novelRepository: NovelRepository by lazy {
+        NovelRepository(database, files, crawler, novelScheduler)
     }
 }

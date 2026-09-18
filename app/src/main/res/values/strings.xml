@@ -22,5 +22,5 @@
 
     <!-- Novel Card -->
     <string name="novelCard_imageContentDescription">Cover image for the novel titled %s</string>
-    <string name="novelCard_chapterCount">Chapters: %d</string>
+    <string name="novelCard_chapterCount">%1$d / %2$d chapters</string>
 </resources>

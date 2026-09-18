@@ -1,7 +1,7 @@
 package ca.kieve.yomiyou.crawler
 
 import ca.kieve.yomiyou.copydown.CopyDown
-import ca.kieve.yomiyou.crawler.model.ChapterInfo
+import ca.kieve.yomiyou.crawler.model.ChapterListPage
 import ca.kieve.yomiyou.crawler.model.NovelInfo
 import ca.kieve.yomiyou.crawler.source.NovelPhoenix
 import ca.kieve.yomiyou.scraper.Scraper
@@ -63,8 +63,8 @@ class Crawler(scraper: Scraper) {
         return sourceFor(novelUrl)?.novelInfo(novelUrl)
     }
 
-    suspend fun getChapters(novelUrl: String): List<ChapterInfo> {
-        return sourceFor(novelUrl)?.chapters(novelUrl) ?: emptyList()
+    suspend fun getChapterListPage(novelUrl: String, page: String?, firstPosition: Int): ChapterListPage? {
+        return sourceFor(novelUrl)?.chapterListPage(novelUrl, page, firstPosition)
     }
 
     /** @return The chapter as Markdown, or null if it couldn't be fetched. */

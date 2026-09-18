@@ -2,11 +2,11 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "a1bcaa75154b53882b65f5b7c914e462",
+    "identityHash": "860de81bf92fedd96e8ba2c32870be45",
     "entities": [
       {
-        "tableName": "novel_meta",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `url` TEXT NOT NULL, `title` TEXT NOT NULL, `author` TEXT, `cover_url` TEXT, `in_library` INTEGER NOT NULL)",
+        "tableName": "novel",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `url` TEXT NOT NULL, `title` TEXT NOT NULL, `author` TEXT, `cover_url` TEXT, `in_library` INTEGER NOT NULL, `last_opened` INTEGER NOT NULL, `list_page` TEXT, `list_page_position` INTEGER NOT NULL, `list_complete` INTEGER NOT NULL)",
         "fields": [
           {
             "fieldPath": "id",
@@ -29,44 +29,80 @@
           {
             "fieldPath": "author",
             "columnName": "author",
-            "affinity": "TEXT",
-            "notNull": false
+            "affinity": "TEXT"
           },
           {
             "fieldPath": "coverUrl",
             "columnName": "cover_url",
-            "affinity": "TEXT",
-            "notNull": false
+            "affinity": "TEXT"
           },
           {
             "fieldPath": "inLibrary",
             "columnName": "in_library",
             "affinity": "INTEGER",
             "notNull": true
-          }
-        ],
-        "primaryKey": {
-          "columnNames": [
-            "id"
-          ],
-          "autoGenerate": true
-        },
-        "indices": [],
-        "foreignKeys": []
-      },
-      {
-        "tableName": "chapter_meta",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `novel_id` INTEGER NOT NULL, `title` TEXT NOT NULL, `url` TEXT NOT NULL, PRIMARY KEY(`id`, `novel_id`), FOREIGN KEY(`novel_id`) REFERENCES `novel_meta`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
-        "fields": [
+          },
           {
-            "fieldPath": "id",
-            "columnName": "id",
+            "fieldPath": "lastOpened",
+            "columnName": "last_opened",
             "affinity": "INTEGER",
             "notNull": true
           },
           {
+            "fieldPath": "listPage",
+            "columnName": "list_page",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "listPagePosition",
+            "columnName": "list_page_position",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "listComplete",
+            "columnName": "list_complete",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_novel_url",
+            "unique": true,
+            "columnNames": [
+              "url"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_novel_url` ON `${TABLE_NAME}` (`url`)"
+          }
+        ]
+      },
+      {
+        "tableName": "chapter",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`novel_id` INTEGER NOT NULL, `url` TEXT NOT NULL, `position` INTEGER NOT NULL, `title` TEXT NOT NULL, `downloaded` INTEGER NOT NULL, PRIMARY KEY(`novel_id`, `url`), FOREIGN KEY(`novel_id`) REFERENCES `novel`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
             "fieldPath": "novelId",
             "columnName": "novel_id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "url",
+            "columnName": "url",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "position",
+            "columnName": "position",
             "affinity": "INTEGER",
             "notNull": true
           },
@@ -77,33 +113,33 @@
             "notNull": true
           },
           {
-            "fieldPath": "url",
-            "columnName": "url",
-            "affinity": "TEXT",
+            "fieldPath": "downloaded",
+            "columnName": "downloaded",
+            "affinity": "INTEGER",
             "notNull": true
           }
         ],
         "primaryKey": {
+          "autoGenerate": false,
           "columnNames": [
-            "id",
-            "novel_id"
-          ],
-          "autoGenerate": false
+            "novel_id",
+            "url"
+          ]
         },
         "indices": [
           {
-            "name": "index_chapter_meta_novel_id",
+            "name": "index_chapter_novel_id",
             "unique": false,
             "columnNames": [
               "novel_id"
             ],
             "orders": [],
-            "createSql": "CREATE INDEX IF NOT EXISTS `index_chapter_meta_novel_id` ON `${TABLE_NAME}` (`novel_id`)"
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_chapter_novel_id` ON `${TABLE_NAME}` (`novel_id`)"
           }
         ],
         "foreignKeys": [
           {
-            "table": "novel_meta",
+            "table": "novel",
             "onDelete": "CASCADE",
             "onUpdate": "NO ACTION",
             "columns": [
@@ -116,10 +152,9 @@
         ]
       }
     ],
-    "views": [],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'a1bcaa75154b53882b65f5b7c914e462')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '860de81bf92fedd96e8ba2c32870be45')"
     ]
   }
 }

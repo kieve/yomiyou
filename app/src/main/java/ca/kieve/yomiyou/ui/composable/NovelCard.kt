@@ -1,6 +1,5 @@
 package ca.kieve.yomiyou.ui.composable
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,44 +17,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import ca.kieve.yomiyou.R
-import ca.kieve.yomiyou.data.model.Novel
-import androidx.compose.ui.graphics.painter.Painter
-import coil3.compose.rememberAsyncImagePainter
-import java.io.File
-
-@Composable
-fun NovelCard(
-    novel: Novel,
-    modifier: Modifier = Modifier
-) {
-    NovelCard(
-        title = novel.metadata.title,
-        subTitle = stringResource(id = R.string.novelCard_chapterCount, novel.chapters.size),
-        coverPainter = rememberAsyncImagePainter(novel.coverFile),
-        modifier = modifier
-    )
-}
+import coil3.compose.AsyncImage
 
 @Composable
 fun NovelCard(
     title: String,
     subTitle: String,
-    coverFile: File?,
-    modifier: Modifier = Modifier
-) {
-    NovelCard(
-        title = title,
-        subTitle = subTitle,
-        coverPainter = rememberAsyncImagePainter(coverFile),
-        modifier
-    )
-}
-
-@Composable
-fun NovelCard(
-    title: String,
-    subTitle: String,
-    coverPainter: Painter,
+    coverUrl: String?,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -69,8 +37,8 @@ fun NovelCard(
         Row(
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Image(
-                painter = coverPainter,
+            AsyncImage(
+                model = coverUrl,
                 contentDescription = stringResource(
                     id = R.string.novelCard_imageContentDescription,
                     title),

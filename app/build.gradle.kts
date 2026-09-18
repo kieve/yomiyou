@@ -64,6 +64,7 @@ dependencies {
 
     implementation(libs.jsoup) // Requesting and parsing HTML
     implementation(libs.coil.compose)
+    implementation(libs.coil.network.okhttp)
     implementation(libs.compose.markdown)
 
     testImplementation(libs.junit.jupiter)

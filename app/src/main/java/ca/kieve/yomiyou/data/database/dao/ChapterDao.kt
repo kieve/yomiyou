@@ -2,14 +2,33 @@ package ca.kieve.yomiyou.data.database.dao
 
 import androidx.room.Dao
 import androidx.room.Query
-import ca.kieve.yomiyou.data.database.BaseDao
-import ca.kieve.yomiyou.data.database.model.ChapterMeta
+import androidx.room.Upsert
+import ca.kieve.yomiyou.data.database.model.Chapter
+import kotlinx.coroutines.flow.Flow
 
 @Dao
-abstract class ChapterDao : BaseDao<ChapterMeta>() {
-    @Query("SELECT * FROM chapter_meta")
-    abstract suspend fun getAllChapterMeta(): List<ChapterMeta>
+interface ChapterDao {
+    @Query("SELECT * FROM chapter WHERE novel_id = :novelId ORDER BY position")
+    fun chapters(novelId: Long): Flow<List<Chapter>>
 
-    @Query("SELECT * FROM chapter_meta WHERE novel_id = :novelId ORDER BY id")
-    abstract suspend fun getNovelChapters(novelId: Long): List<ChapterMeta>
+    @Query("SELECT * FROM chapter WHERE novel_id = :novelId ORDER BY position")
+    suspend fun chaptersNow(novelId: Long): List<Chapter>
+
+    @Query("SELECT * FROM chapter WHERE novel_id = :novelId AND position = :position")
+    fun chapter(novelId: Long, position: Int): Flow<Chapter?>
+
+    @Query("SELECT * FROM chapter WHERE novel_id = :novelId AND url = :url")
+    suspend fun get(novelId: Long, url: String): Chapter?
+
+    @Query("SELECT * FROM chapter WHERE novel_id = :novelId AND position BETWEEN :from AND :to ORDER BY position")
+    suspend fun range(novelId: Long, from: Int, to: Int): List<Chapter>
+
+    @Query("SELECT * FROM chapter WHERE novel_id = :novelId AND downloaded = 0 ORDER BY position")
+    suspend fun notDownloaded(novelId: Long): List<Chapter>
+
+    @Upsert
+    suspend fun upsert(chapters: List<Chapter>)
+
+    @Query("UPDATE chapter SET downloaded = 1 WHERE novel_id = :novelId AND url = :url")
+    suspend fun markDownloaded(novelId: Long, url: String)
 }

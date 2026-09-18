@@ -28,6 +28,7 @@ room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
 room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
 
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
+coil-network-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp", version.ref = "coil" }
 compose-markdown = { module = "com.github.jeziellago:compose-markdown", version = "0.7.2" }
 jsoup = { module = "org.jsoup:jsoup", version = "1.23.2" }
 

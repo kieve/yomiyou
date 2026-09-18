@@ -87,24 +87,23 @@ private fun NovelList(
     navController: NavController,
     novelRepository: NovelRepository
 ) {
-    val novels by novelRepository.novels.collectAsState()
-    val novelList = novels.values
-        .filter { novel -> novel.metadata.inLibrary }
-        .toList()
+    val library by novelRepository.library.collectAsState(emptyList())
 
     LazyColumn(
         modifier = Modifier.fillMaxWidth(),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        items(novelList) { novel ->
+        items(library, key = { it.novel.id }) { entry ->
             NovelCard(
-                novel = novel,
+                title = entry.novel.title,
+                subTitle = stringResource(
+                    R.string.novelCard_chapterCount, entry.downloadedCount, entry.chapterCount),
+                coverUrl = entry.novel.coverUrl,
                 modifier = Modifier
                     .clickable {
                         navController.navigate(
-                            YomiScreen.NovelInfoNav.withArgs(
-                                novel.metadata.id.toString())
+                            YomiScreen.NovelInfoNav.withArgs(entry.novel.id.toString())
                         )
                     }
             )

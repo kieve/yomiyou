@@ -4,6 +4,7 @@ import android.util.Log
 import ca.kieve.yomiyou.crawler.Crawler
 import ca.kieve.yomiyou.crawler.NovelSource
 import ca.kieve.yomiyou.crawler.model.ChapterInfo
+import ca.kieve.yomiyou.crawler.model.ChapterListPage
 import ca.kieve.yomiyou.crawler.model.NovelInfo
 import ca.kieve.yomiyou.scraper.Scraper
 import ca.kieve.yomiyou.scraper.soup
@@ -49,25 +50,28 @@ class NovelPhoenix(private val scraper: Scraper) : NovelSource {
             .takeUnless { it.isEmpty() || it.startsWith("data:") }
     }
 
-    override suspend fun chapters(novelUrl: String): List<ChapterInfo> {
-        val chapters = mutableListOf<ChapterInfo>()
-        var pageUrl: String? = "$novelUrl/chapters"
-        while (pageUrl != null) {
-            val soup = scraper.soup(pageUrl, waitFor = "ul.chapter-list")
-            if (soup == null) {
-                Log.w(TAG, "chapters: failed to load $pageUrl, returning ${chapters.size} so far")
-                break
-            }
-            for (a in soup.select("ul.chapter-list li a")) {
-                chapters.add(ChapterInfo(
-                    id = chapters.size + 1L,
+    override suspend fun chapterListPage(
+        novelUrl: String,
+        page: String?,
+        firstPosition: Int
+    ): ChapterListPage? {
+        val pageUrl = page ?: "$novelUrl/chapters"
+        val soup = scraper.soup(pageUrl, waitFor = "ul.chapter-list")
+        if (soup == null) {
+            Log.w(TAG, "chapterListPage: failed to load $pageUrl")
+            return null
+        }
+        return ChapterListPage(
+            chapters = soup.select("ul.chapter-list li a").mapIndexed { i, a ->
+                ChapterInfo(
+                    position = firstPosition + i,
                     url = a.absUrl("href"),
                     title = a.selectFirst(".chapter-title")?.text()?.trim() ?: a.attr("title")
-                ))
-            }
-            pageUrl = soup.selectFirst("ul.pagination a[rel=next]")?.absUrl("href")
-        }
-        return chapters
+                )
+            },
+            page = pageUrl,
+            nextPage = soup.selectFirst("ul.pagination a[rel=next]")?.absUrl("href")
+        )
     }
 
     override suspend fun rawChapterHtml(chapterUrl: String): Element? {

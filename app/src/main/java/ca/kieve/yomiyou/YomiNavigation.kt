@@ -44,20 +44,20 @@ fun YomiNavigation(appContainer: AppContainer) {
             )
         }
         composable(
-            route = YomiScreen.ReaderNav.route + "/{novelId}/{chapterId}",
+            route = YomiScreen.ReaderNav.route + "/{novelId}/{position}",
             arguments = listOf(
                 navArgument("novelId") {
                     type = NavType.LongType
                 },
-                navArgument("chapterId") {
-                    type = NavType.LongType
+                navArgument("position") {
+                    type = NavType.IntType
                 }
             )
         ) { entry ->
             ReaderScreen(
                 yomiContext = yomiContext,
                 novelId = entry.arguments?.getLong("novelId") ?: 0,
-                chapterId = entry.arguments?.getLong("chapterId") ?: 0
+                position = entry.arguments?.getInt("position") ?: 1
             )
         }
     }

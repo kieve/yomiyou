@@ -1,6 +1,6 @@
 package ca.kieve.yomiyou.crawler
 
-import ca.kieve.yomiyou.crawler.model.ChapterInfo
+import ca.kieve.yomiyou.crawler.model.ChapterListPage
 import ca.kieve.yomiyou.crawler.model.NovelInfo
 import org.jsoup.nodes.Element
 
@@ -16,6 +16,6 @@ interface NovelSource {
     suspend fun search(query: String): List<NovelInfo>
     suspend fun novelInfo(novelUrl: String): NovelInfo?
 
-    suspend fun chapters(novelUrl: String): List<ChapterInfo>
+    suspend fun chapterListPage(novelUrl: String, page: String?, firstPosition: Int): ChapterListPage?
     suspend fun rawChapterHtml(chapterUrl: String): Element?
 }

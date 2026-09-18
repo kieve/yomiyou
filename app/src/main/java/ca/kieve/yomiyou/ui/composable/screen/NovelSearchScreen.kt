@@ -84,7 +84,7 @@ private fun SearchBar(novelRepository: NovelRepository) {
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(
                 onSearch = {
-                    novelRepository.searchForNewNovels(text.value.text)
+                    novelRepository.search(text.value.text)
                     focusManager.clearFocus()
                 },
                 onDone = {
@@ -100,30 +100,22 @@ private fun SearchResults(
     navController: NavController,
     novelRepository: NovelRepository
 ) {
-    val novelIds by novelRepository.searchResults.collectAsState()
-    val novelMap by novelRepository.novels.collectAsState()
-
-    val results = novelMap
-        .filterKeys { id -> novelIds.contains(id) }
-        .values
-        .toList()
+    val results by novelRepository.searchResults.collectAsState()
 
     LazyColumn(
         modifier = Modifier.fillMaxWidth(),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        items(results) { novel ->
+        items(results, key = { it.id }) { novel ->
             NovelCard(
-                title = novel.metadata.title,
-                subTitle = "TODO",
-                coverFile = novel.coverFile,
+                title = novel.title,
+                subTitle = novel.author ?: "",
+                coverUrl = novel.coverUrl,
                 modifier = Modifier
                     .clickable {
                         navController.navigate(
-                            YomiScreen.NovelInfoNav.withArgs(
-                                novel.metadata.id.toString()
-                            )
+                            YomiScreen.NovelInfoNav.withArgs(novel.id.toString())
                         )
                     }
             )

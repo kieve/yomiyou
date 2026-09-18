@@ -28,12 +28,13 @@ Android WebView (a real browser), store every chapter locally as Markdown, read 
 | Topic | Decision |
 |---|---|
 | Content format | Markdown via `copydown/` (turndown port, 122-case test corpus). Rendered by `compose-markdown`. |
-| Content store | Internal `filesDir/novels/<novelId>/` is canonical. |
+| Content store | Internal `filesDir/novels/<novelId>/<url-slug>.md` is canonical (slug = last URL segment, stable for the chapter's life). Human-readable `0001 - Title.md` names are the export's job (C). |
 | SAF folder picker | An **export** feature (sync via Seafile etc.), not debug. Optional, set from settings; mirror on chapter write as `<novel title>/0001 - Chapter Title.md` + cover. Never forced at first launch. |
 | `LogUtil.getTag()` | Keep. Add `-keepnames` only if `minifyEnabled` is ever turned on. |
 | `Crawler.absoluteUrl` | Delete; use jsoup `element.absUrl("href")` (docs are parsed with base URI in `getSoup`). |
 | `BaseDao.upsert` / `HasId` | Replace with Room `@Upsert`; `HasId` then has no user and goes. |
 | `YomiContext` | Not a standalone deletion; disappears when screens are rewritten (E). |
+| Room schema version | Stays at **1** until a real release; clear app data on test devices between schema changes. No migrations, no `fallbackToDestructiveMigration`. |
 | LightNovelPub source | Dead (5 years). Delete; Jackson moves to `testImplementation` (only `CopyDownTest` uses it). minSdk can drop back to 24 then, if wanted. |
 | UI toolkit | Still Compose Material 2 + Navigation 2 on purpose. M3 migration happens with the UI rewrite (E), not before. |
 
@@ -43,9 +44,9 @@ Android WebView (a real browser), store every chapter locally as Markdown, read 
 WebViewScraper.loadPage(url)             scraper/WebViewScraper.kt
   -> NovelSource (NovelPhoenix)          crawler/NovelSource.kt, crawler/source/NovelPhoenix.kt
   -> Crawler.toMarkdown                  cleanContents (strip ads / bad tags) -> CopyDown -> blacklist lines
-  -> YomiFiles.writeChapter              data/YomiFiles.kt  filesDir/novels/<id>/<chapterIdx>
-  -> NovelRepository.onChapterDownloaded data/NovelRepository.kt  in-memory mirror
-Room: NovelMeta, ChapterMeta             data/database/
+  -> YomiFiles.writeChapter              data/YomiFiles.kt  filesDir/novels/<id>/<slug>.md
+  -> NovelRepository.onChapterDownloaded data/NovelRepository.kt  marks chapter.downloaded
+Room: Novel, Chapter (v2)                data/database/  UI collects Flows directly
 Jobs: NovelScheduler + NovelJob          data/scheduler/  serial WebView queue, active-novel priority
 UI:  YomiNavigation -> NovelList / NovelSearch / NovelInfo / Reader   ui/composable/screen/
 ```
@@ -68,13 +69,13 @@ UI:  YomiNavigation -> NovelList / NovelSearch / NovelInfo / Reader   ui/composa
   paragraph). Verified 2026-09-17: CopyDown alone renders both cases correctly.
   Delete `extractContents` + `internalExtractContents`, keep `cleanContents`, feed
   `element.html()` to CopyDown, apply `blacklistRegexes` to Markdown lines.
-- [ ] **4. Reader loads the whole novel into RAM.** `NovelRepository.openNovel` reads
+- [x] **4. Reader loads the whole novel into RAM.** *(fixed 2026-09-18: reader shows one chapter from `openChapter(novelId, position)` with prev/next)* `NovelRepository.openNovel` reads
   every chapter file; `ReaderScreen` renders all of them in one `LazyColumn` of
   `MarkdownText`. Reader must load one chapter (± neighbours).
-- [ ] **5. Chapter identity is a positional index.** `ChapterMeta.id` = crawl position and
+- [x] **5. Chapter identity is a positional index.** *(fixed 2026-09-18: `Chapter` PK is `(novel_id, url)`, `position` is data; `mergeChapters` keeps `downloaded` by URL — `MergeChaptersTest`)* `ChapterMeta.id` = crawl position and
   is also the cache filename; a site insert/reorder silently mislabels every cached
   chapter after it. Key by URL/slug; keep a separate `index` for ordering.
-- [ ] **6. Startup is O(total chapters) coroutines + O(n²) map copies.** `loadNovels`
+- [x] **6. Startup is O(total chapters) coroutines + O(n²) map copies.** *(fixed 2026-09-18: one `notDownloaded` query per library novel, batch `schedule()`)* `loadNovels`
   launches a coroutine per chapter; each `setNovel` copies the whole map; missing
   chapters are re-scheduled on every launch with no "already queued" check, and
   `addToLibrary` schedules them all again.
@@ -96,23 +97,27 @@ UI:  YomiNavigation -> NovelList / NovelSearch / NovelInfo / Reader   ui/composa
   Always on, no permission, bounded. Read via Device Explorer
   (`data/data/ca.kieve.yomiyou/cache/scraper/`) or `adb shell run-as`. Doubles as the
   way to grab fixtures for pages that can't be fetched from a desktop.
-- [x] **A. Stateless source plugins + fixture tests.** *(done 2026-09-17: `NovelSource` interface, `NovelPhoenix`, `FixtureScraper` driven by `urls.txt` and validating `waitFor` selectors, `NovelPhoenixTest`; `MultiStepJob` collapsed into single-shot `NovelJob`)* Interface: `search(q)`,
+- [x] **A. Stateless source plugins + fixture tests.** *(done 2026-09-17: `NovelSource` interface, `NovelPhoenix`, `FixtureScraper` driven by `urls.txt` and validating `waitFor` selectors, `NovelPhoenixTest`)* Interface: `search(q)`,
   `novel(url)`, `chapters(url)` (source handles its own pagination — the
   `ChapterListInfo` / `getChapterListPage` / `MultiStepJob` machinery exists only for
   LightNovelPub paging and leaks into the scheduler), `chapterHtml(url)`. Source takes a
   `Scraper`, not the `Crawler`; `HtmlFilter` is a `val` on the source. First source:
   **novelphoenix**, developed against fixtures only.
-- [ ] **B. One source of truth for "downloaded".** Files stay canonical; drop the
+- [x] **B. One source of truth for "downloaded".** *(done 2026-09-18: schema stays v1 — clear app data on test devices after schema changes (`novel`, `chapter` with `downloaded`), UI reads Room `Flow`s, in-memory mirror + mutexes gone, covers loaded by Coil straight from `cover_url` (manual cover download deleted). `read_progress` NOT added yet — nothing writes it; add with E when the reader tracks position)* Files stay canonical; drop the
   in-memory `Novel.chapterFiles` mirror; Room `ChapterMeta` gets a `downloaded`
   flag (or path) written when the file is; UI reads Room `Flow`s. Add
   `read_progress (novel_id, chapter_index, scroll)` and `last_updated`. Chapter files
   named `0001 - Chapter Title.md`.
 - [ ] **C. SAF export feature** (see decision). Cache per-novel `DocumentFile` dir;
   "re-export everything" action for folders set after the fact.
-- [ ] **D. Scheduler reshape.** Errors surfaced to the UI, a `Set` of queued keys for
-  dedup, one fixed inter-request delay (`ponytail:` constant, tune per source later).
-  Keep "active novel first" priority. (`MultiStepJob` already gone; per-job `try/catch`
-  already in.)
+- [x] **D. Scheduler (done 2026-09-18).** Jobs are `step(): Boolean` (the original
+  `MultiStepJob` shape); chapter list = one page per step so the queue is re-sorted between
+  page loads. Priority documented at the top of `NovelScheduler.kt`: reading chapter →
+  next → previous; open novel (info, list, chapters); background chapters by
+  `last_opened`, then lists. Non-library jobs are dropped on navigate-away; the list
+  resumes from `Novel.chaptersNextPage`. Key-based dedup. `SchedulerPriorityTest`.
+  Still open: errors surfaced to the UI; a fixed inter-request delay if the site ever
+  needs one.
 - [ ] **E. UI rewrite (M3).** Screens take state + callbacks (no `AppContainer` /
   `NavController` in composables). Fix: Scaffold padding not applied,
   `Text("Novel is null") // TODO`, debug FAB, `scrollToItem(chapterId - 1)`. Reading
@@ -153,8 +158,9 @@ active-novel priority; `Crawler.cleanContents` tag/CSS strip lists; `LogUtil.get
 2. [x] Capture novelphoenix fixtures with a desktop browser → write source + fixture
    tests (A). Delete LightNovelPub.
 3. [x] Bug 3 (delete `extractContents`), bug 9, rest of the delete list (LightNovelPub + theme XML remain, tied to steps 2 / E).
-4. [ ] Re-architecture: B, C, D, E, bug 5 (chapter keying), bug 4 (single-chapter reader),
-   bug 6 falls out of B.
+4. [x] Data layer: B, bug 5, bug 4, bug 6 (2026-09-18).
+5. [x] D (scheduler: preemption, reading priority, cancel-on-leave, resume) (2026-09-18).
+6. [ ] C (SAF export), E (UI on M3, read progress), F (incremental refresh; `chaptersNextPage` is the hook).
 
 ## Toolchain notes
 

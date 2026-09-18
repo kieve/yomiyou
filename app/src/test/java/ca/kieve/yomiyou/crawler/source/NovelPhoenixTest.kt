@@ -6,6 +6,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -35,9 +36,16 @@ class NovelPhoenixTest {
     }
 
     @Test
-    fun `chapters follow rel=next and keep what they have when a page fails`() = runBlocking {
+    fun `chapter list pages chain through rel=next`() = runBlocking {
         // Fixtures hold pages 1-2 of 15; page 3 "times out".
-        val chapters = source.chapters(novelUrl)
+        val page1 = source.chapterListPage(novelUrl, null, 1)!!
+        val page2 = source.chapterListPage(novelUrl, page1.nextPage, 101)!!
+        assertEquals("$novelUrl/chapters", page1.page)
+        assertEquals(page1.nextPage, page2.page)
+        assertNotNull(page2.nextPage)
+        assertNull(source.chapterListPage(novelUrl, page2.nextPage, 201))
+        val pages = listOf(page1.chapters, page2.chapters)
+        val chapters = pages.flatten()
 
         assertEquals(
             listOf(
@@ -47,12 +55,13 @@ class NovelPhoenixTest {
             ),
             scraper.requested
         )
+        assertEquals(listOf(100, 100), pages.map { it.size })
         assertEquals(200, chapters.size)
-        assertEquals(1L, chapters[0].id)
+        assertEquals(1, chapters[0].position)
         assertEquals("Chapter 1 - Another Monday Morning", chapters[0].title)
         assertEquals("$novelUrl/chapter-1", chapters[0].url)
         assertEquals("$novelUrl/chapter-101", chapters[100].url)
-        assertEquals(200L, chapters[199].id)
+        assertEquals(200, chapters[199].position)
     }
 
     @Test

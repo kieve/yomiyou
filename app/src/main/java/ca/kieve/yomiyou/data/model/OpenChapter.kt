@@ -1,8 +1,8 @@
 package ca.kieve.yomiyou.data.model
 
-import ca.kieve.yomiyou.data.database.model.ChapterMeta
+import ca.kieve.yomiyou.data.database.model.Chapter
 
 data class OpenChapter(
-    val chapterMeta: ChapterMeta,
-    val content: String
+    val chapter: Chapter,
+    val content: String?
 )

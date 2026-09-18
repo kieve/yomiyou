@@ -20,6 +20,7 @@ import androidx.compose.material.ButtonDefaults
 import androidx.compose.material.Divider
 import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
+import androidx.compose.material.LocalContentColor
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Scaffold
 import androidx.compose.material.Text
@@ -42,8 +43,8 @@ import ca.kieve.yomiyou.R
 import ca.kieve.yomiyou.YomiContext
 import ca.kieve.yomiyou.YomiScreen
 import ca.kieve.yomiyou.data.NovelRepository
-import ca.kieve.yomiyou.data.database.model.ChapterMeta
-import ca.kieve.yomiyou.data.model.Novel
+import ca.kieve.yomiyou.data.database.model.Chapter
+import ca.kieve.yomiyou.data.database.model.Novel
 import coil3.compose.rememberAsyncImagePainter
 
 @Composable
@@ -60,8 +61,8 @@ fun NovelInfoScreen(
         novelRepository.loadNovelDetails(novelId)
     }
 
-    val novels by novelRepository.novels.collectAsState()
-    val novel = novels[novelId]
+    val novel by novelRepository.novel(novelId).collectAsState(null)
+    val chapters by novelRepository.chapters(novelId).collectAsState(emptyList())
 
     Scaffold(
         topBar = {
@@ -88,26 +89,23 @@ fun NovelInfoScreen(
                 end = 16.dp
             )
         ) {
-            if (novel == null) {
-                Text("Novel is null") // TODO FIX THIS
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    item {
-                        NovelInfo(
-                            novelRepository = novelRepository,
-                            novel = novel
-                        )
-                    }
+            val shownNovel = novel ?: return@Column
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                item {
+                    NovelInfo(
+                        novelRepository = novelRepository,
+                        novel = shownNovel
+                    )
+                }
 
-                    items(novel.chapters) { chapter ->
-                        ChapterRow(
-                            navController = navController,
-                            novel = novel,
-                            chapter = chapter
-                        )
-                    }
+                items(chapters, key = { it.url }) { chapter ->
+                    ChapterRow(
+                        navController = navController,
+                        novel = shownNovel,
+                        chapter = chapter
+                    )
                 }
             }
         }
@@ -119,13 +117,13 @@ fun NovelInfo(
     novelRepository: NovelRepository,
     novel: Novel
 ) {
-    val title = novel.metadata.title
+    val title = novel.title
 
     Row(
         modifier = Modifier.height(IntrinsicSize.Min)
     ) {
         Image(
-            painter = rememberAsyncImagePainter(novel.coverFile),
+            painter = rememberAsyncImagePainter(novel.coverUrl),
             contentDescription = stringResource(
                 id = R.string.novelCard_imageContentDescription,
                 title),
@@ -147,11 +145,7 @@ fun NovelInfo(
             Spacer(modifier = Modifier.weight(1.0f))
             Button(
                 onClick = {
-                    if (novel.metadata.inLibrary) {
-                        novelRepository.removeFromLibrary(novel.metadata.id)
-                    } else {
-                        novelRepository.addToLibrary(novel.metadata.id)
-                    }
+                    novelRepository.setInLibrary(novel.id, !novel.inLibrary)
                 },
                 contentPadding = PaddingValues(
                     start = 20.dp,
@@ -164,7 +158,7 @@ fun NovelInfo(
                 val contentDescription: String
                 val text: String
 
-                if (novel.metadata.inLibrary) {
+                if (novel.inLibrary) {
                     image = Icons.Filled.Favorite
                     contentDescription = stringResource(R.string.novelInfo_removeContentDescription)
                     text = stringResource(R.string.novelInfo_remove)
@@ -189,19 +183,19 @@ fun NovelInfo(
 private fun ChapterRow(
     navController: NavController,
     novel: Novel,
-    chapter: ChapterMeta
+    chapter: Chapter
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable {
-                if (!novel.metadata.inLibrary) {
+                if (!novel.inLibrary) {
                     return@clickable
                 }
                 navController.navigate(
                     YomiScreen.ReaderNav.withArgs(
                         chapter.novelId.toString(),
-                        chapter.id.toString()
+                        chapter.position.toString()
                     )
                 )
             }
@@ -210,12 +204,13 @@ private fun ChapterRow(
             modifier = Modifier
                 .width(100.dp)
                 .padding(end = 4.dp),
-            text = stringResource(R.string.yomi_shortChapterNum, chapter.id),
+            text = stringResource(R.string.yomi_shortChapterNum, chapter.position),
             style = MaterialTheme.typography.h5
         )
         Text(
             text = chapter.title,
             style = MaterialTheme.typography.h5,
+            color = LocalContentColor.current.copy(alpha = if (chapter.downloaded) 1f else 0.4f),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
