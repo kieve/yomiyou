@@ -122,7 +122,10 @@ UI:  YomiNavigation -> NovelList / NovelSearch / NovelInfo / Reader   ui/composa
   `NavController` in composables). Fix: Scaffold padding not applied,
   `Text("Novel is null") // TODO`, debug FAB, `scrollToItem(chapterId - 1)`. Reading
   progress, next / previous chapter, download-state UI.
-- [ ] **F. Incremental updates.** Novels release a few chapters a week; today the chapter
+- [ ] **F. Incremental updates.** *(2026-09-18: a first cut was built and discarded — the
+  refresh interval must be a user setting, so F waits for E's settings page. The data
+  hook is in place: the list job always re-fetches `Novel.listPage`, so "refresh" is just
+  scheduling `DownloadChapterListJob` for a complete list.)* Novels release a few chapters a week; today the chapter
   list is fetched once (when added) and a re-run would reload all pages. Do after bug 5
   (URL-keyed chapters make the merge safe). Pieces: `NovelSource.chapters(novelUrl,
   fromIndex)` so NovelPhoenix starts at page `fromIndex / 100 + 1` (new chapters are on
@@ -160,7 +163,8 @@ active-novel priority; `Crawler.cleanContents` tag/CSS strip lists; `LogUtil.get
 3. [x] Bug 3 (delete `extractContents`), bug 9, rest of the delete list (LightNovelPub + theme XML remain, tied to steps 2 / E).
 4. [x] Data layer: B, bug 5, bug 4, bug 6 (2026-09-18).
 5. [x] D (scheduler: preemption, reading priority, cancel-on-leave, resume) (2026-09-18).
-6. [ ] C (SAF export), E (UI on M3, read progress), F (incremental refresh; `chaptersNextPage` is the hook).
+6. [ ] E (UI on M3, settings page, read progress, errors surfaced), F (needs the settings
+   page for its interval), C (SAF export).
 
 ## Toolchain notes
 
