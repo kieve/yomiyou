@@ -1,4 +1,5 @@
-# Rendered-DOM fixtures (copy(document.documentElement.outerHTML) in DevTools), captured 2026-09-17.
+# Rendered-DOM fixtures, captured 2026-09-17 from desktop DevTools; search-results.html re-captured
+# 2026-09-18 from the app itself (cache/scraper/, pulled with adb run-as).
 # Novel used: The Primal Hunter. Chapter 2 chosen so previous/next links both exist.
 search-results.html  https://novelphoenix.com/search?keyword=hunter&type=title
 novel-info.html      https://novelphoenix.com/novel/the-primal-hunter
