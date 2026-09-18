@@ -9,7 +9,7 @@ import ca.kieve.yomiyou.data.database.model.ChapterMeta
 import ca.kieve.yomiyou.data.database.model.NovelMeta
 import ca.kieve.yomiyou.data.model.Novel
 import ca.kieve.yomiyou.data.model.OpenChapter
-import ca.kieve.yomiyou.data.scheduler.DownloadChapterInfoJob
+import ca.kieve.yomiyou.data.scheduler.DownloadChapterListJob
 import ca.kieve.yomiyou.data.scheduler.DownloadChapterJob
 import ca.kieve.yomiyou.data.scheduler.DownloadNovelInfoJob
 import ca.kieve.yomiyou.util.getTag
@@ -381,15 +381,16 @@ class NovelRepository(context: Context) {
             downloadCover(novelMeta)
         }
 
-        scheduler.schedule(
-            DownloadChapterInfoJob(
-                novel = novel,
-                crawler = crawler,
-                novelRepository = this
-            )
-        )
-
         return novel
+    }
+
+    /** Fetches details + chapter list for a novel the user is looking at. */
+    fun loadNovelDetails(novelId: Long) {
+        val novel = getNovel(novelId) ?: return
+        scheduler.schedule(DownloadNovelInfoJob(novel, crawler, this))
+        if (novel.chapters.isEmpty()) {
+            scheduler.schedule(DownloadChapterListJob(novel, crawler, this))
+        }
     }
 
     fun openNovel(novelId: Long) {
@@ -443,24 +444,7 @@ class NovelRepository(context: Context) {
                         return@mapNotNull existingNovel.metadata.id
                     }
 
-                    val newNovel = addNovel(
-                        novelInfo = novelInfo
-                    ) ?: return@mapNotNull null
-
-                    // It's unlikely the search info contains everything we want, so schedule to do
-                    // a full novel info grab
-                    Log.d(
-                        TAG,
-                        "searchForNewNovels: Scheduling download for ${newNovel.metadata.title}"
-                    )
-                    scheduler.schedule(
-                        DownloadNovelInfoJob(
-                            crawler = crawler,
-                            novel = newNovel,
-                            novelRepository = this@NovelRepository
-                        )
-                    )
-                    newNovel.metadata.id
+                    addNovel(novelInfo)?.metadata?.id
                 }.toHashSet()
                 scheduler.setActiveSearch(result)
                 _searchResults.value = result

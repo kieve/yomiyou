@@ -1,5 +1,8 @@
 package ca.kieve.yomiyou.scraper
 
+import org.jsoup.Jsoup
+import org.jsoup.nodes.Document
+
 interface Scraper {
     /**
      * @param[url] URL to load
@@ -14,4 +17,9 @@ interface Scraper {
         waitFor: String? = null,
         timeoutMs: Long = 30_000
     ): String?
+}
+
+suspend fun Scraper.soup(url: String, waitFor: String? = null): Document? {
+    val html = loadPage(url, waitFor) ?: return null
+    return Jsoup.parse(html, url)
 }

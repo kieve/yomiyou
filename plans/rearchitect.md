@@ -10,6 +10,11 @@ Android WebView (a real browser), store every chapter locally as Markdown, read 
 
 ## Constraints (do not violate)
 
+- Capture fixtures with `tools/capture-fixture.ps1` (clipboard → UTF-8 file + `urls.txt`
+  line). `FixtureScraper` fails the test if a fixture is UTF-16. Cause of the UTF-16
+  files: Directory Opus "paste clipboard as file" defaults to UTF-16 for non-ASCII text;
+  fixed via Preferences → Miscellaneous → Advanced → `clipboard_text_encoding = utf8nobom`.
+
 - **Never fetch novelphoenix (or any live source) from tooling/agents.** It has
   anti-scraping. Develop parsers only against saved HTML fixtures under
   `app/src/test/resources/sources/<source>/` (search page, novel page, chapter-list
@@ -36,7 +41,7 @@ Android WebView (a real browser), store every chapter locally as Markdown, read 
 
 ```
 WebViewScraper.loadPage(url)             scraper/WebViewScraper.kt
-  -> Crawler.getSoup / Source.*          crawler/Crawler.kt, crawler/source/en/l/LightNovelPub.kt
+  -> NovelSource (NovelPhoenix)          crawler/NovelSource.kt, crawler/source/NovelPhoenix.kt
   -> Crawler.toMarkdown                  cleanContents (strip ads / bad tags) -> CopyDown -> blacklist lines
   -> YomiFiles.writeChapter              data/YomiFiles.kt  filesDir/novels/<id>/<chapterIdx>
   -> NovelRepository.onChapterDownloaded data/NovelRepository.kt  in-memory mirror
@@ -73,7 +78,7 @@ UI:  YomiNavigation -> NovelList / NovelSearch / NovelInfo / Reader   ui/composa
   launches a coroutine per chapter; each `setNovel` copies the whole map; missing
   chapters are re-scheduled on every launch with no "already queued" check, and
   `addToLibrary` schedules them all again.
-- [ ] **7. `Crawler` is a stateful singleton used concurrently.** `currentSource /
+- [x] **7. `Crawler` is a stateful singleton used concurrently.** *(fixed 2026-09-17: no state left; sources are stateless and take a `Scraper`)* `currentSource /
   currentNovelUrl / currentFilter` are mutated by `initSource` while search and cover
   downloads run in parallel with the scheduler. `searchNovels` hard-codes
   `SOURCES[0]`. `lastVisitedUrl` is never assigned.
@@ -85,13 +90,13 @@ UI:  YomiNavigation -> NovelList / NovelSearch / NovelInfo / Reader   ui/composa
 
 ## Structural work
 
-- [ ] **A0. Scraper page capture (do together with A).** Replaces the deleted SAF debug
+- [x] **A0. Scraper page capture (done 2026-09-17).** Replaces the deleted SAF debug
   files: `WebViewScraper.loadPage` writes the HTML it captured (or the page it was stuck
   on at timeout) to `cacheDir/scraper/<timestamp>-<slug>.html`, keeping the last ~20.
   Always on, no permission, bounded. Read via Device Explorer
   (`data/data/ca.kieve.yomiyou/cache/scraper/`) or `adb shell run-as`. Doubles as the
   way to grab fixtures for pages that can't be fetched from a desktop.
-- [ ] **A. Stateless source plugins + fixture tests.** Interface: `search(q)`,
+- [x] **A. Stateless source plugins + fixture tests.** *(done 2026-09-17: `NovelSource` interface, `NovelPhoenix`, `FixtureScraper` driven by `urls.txt` and validating `waitFor` selectors, `NovelPhoenixTest`; `MultiStepJob` collapsed into single-shot `NovelJob`)* Interface: `search(q)`,
   `novel(url)`, `chapters(url)` (source handles its own pagination — the
   `ChapterListInfo` / `getChapterListPage` / `MultiStepJob` machinery exists only for
   LightNovelPub paging and leaks into the scheduler), `chapterHtml(url)`. Source takes a
@@ -104,14 +109,24 @@ UI:  YomiNavigation -> NovelList / NovelSearch / NovelInfo / Reader   ui/composa
   named `0001 - Chapter Title.md`.
 - [ ] **C. SAF export feature** (see decision). Cache per-novel `DocumentFile` dir;
   "re-export everything" action for folders set after the fact.
-- [ ] **D. Scheduler reshape.** Queue of `suspend () -> Unit` jobs, `try/catch` per job
-  with the error surfaced to the UI, a `Set` of queued keys for dedup, one fixed
-  inter-request delay (`ponytail:` constant, tune per source later). Drop
-  `MultiStepJob`. Keep "active novel first" priority.
+- [ ] **D. Scheduler reshape.** Errors surfaced to the UI, a `Set` of queued keys for
+  dedup, one fixed inter-request delay (`ponytail:` constant, tune per source later).
+  Keep "active novel first" priority. (`MultiStepJob` already gone; per-job `try/catch`
+  already in.)
 - [ ] **E. UI rewrite (M3).** Screens take state + callbacks (no `AppContainer` /
   `NavController` in composables). Fix: Scaffold padding not applied,
   `Text("Novel is null") // TODO`, debug FAB, `scrollToItem(chapterId - 1)`. Reading
   progress, next / previous chapter, download-state UI.
+- [ ] **F. Incremental updates.** Novels release a few chapters a week; today the chapter
+  list is fetched once (when added) and a re-run would reload all pages. Do after bug 5
+  (URL-keyed chapters make the merge safe). Pieces: `NovelSource.chapters(novelUrl,
+  fromIndex)` so NovelPhoenix starts at page `fromIndex / 100 + 1` (new chapters are on
+  the last page) and follows `rel=next` from there; optionally skip the list job when the
+  novel page's chapter count / `Updated` time hasn't changed; a `refresh(novelId)`
+  action (manual / on opening a library novel) that queues info + list jobs, after which
+  the existing "download what's missing" path picks up the new chapters; later a
+  WorkManager periodic check (WebView needs the app process + main thread, same as
+  Tachiyomi's library update).
 
 ## Delete list
 
@@ -122,7 +137,7 @@ UI:  YomiNavigation -> NovelList / NovelSearch / NovelInfo / Reader   ui/composa
 - [x] `BaseDao.upsert` → `@Upsert`; `HasId`
 - [x] `Crawler.absoluteUrl` → `absUrl("href")`
 - [x] `Crawler.extractContents` / `internalExtractContents` (bug 3)
-- [ ] `LightNovelPub.kt` + Jackson from `implementation`
+- [x] `LightNovelPub.kt` + Jackson from `implementation` (minSdk 26 no longer forced; still set)
 - [ ] `Theme.MaterialComponents` XML theme + `material` (views) + `appcompat` deps once
   on `ComponentActivity` (with E)
 
@@ -135,7 +150,7 @@ active-novel priority; `Crawler.cleanContents` tag/CSS strip lists; `LogUtil.get
 
 1. [x] Bugs 1 + 2 (scheduler `finally`; scraper timeout + selector-wait + visible-WebView
    fallback). Everything else needs a fetch that can't hang or die silently.
-2. [ ] Capture novelphoenix fixtures with a desktop browser → write source + fixture
+2. [x] Capture novelphoenix fixtures with a desktop browser → write source + fixture
    tests (A). Delete LightNovelPub.
 3. [x] Bug 3 (delete `extractContents`), bug 9, rest of the delete list (LightNovelPub + theme XML remain, tied to steps 2 / E).
 4. [ ] Re-architecture: B, C, D, E, bug 5 (chapter keying), bug 4 (single-chapter reader),

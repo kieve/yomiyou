@@ -19,7 +19,7 @@ class NovelScheduler {
 
     private val runMutex = Mutex()
     private val schedulerMutex = Mutex()
-    private val mainQueue = ArrayDeque<MultiStepJob>(listOf())
+    private val mainQueue = ArrayDeque<NovelJob>(listOf())
 
     /*
      * Metrics for determining job priority
@@ -34,7 +34,7 @@ class NovelScheduler {
     // Active search set being viewed
     private var activeSearch: Set<Long> = setOf()
 
-    fun schedule(job: MultiStepJob) {
+    fun schedule(job: NovelJob) {
         defaultScope.launch {
             schedulerMutex.withLock {
                 mainQueue.addLast(job)
@@ -108,10 +108,10 @@ class NovelScheduler {
         mainQueue.addAll(result)
     }
 
-    private fun getTypePriority(job: MultiStepJob): Int {
+    private fun getTypePriority(job: NovelJob): Int {
         return when (job) {
             is DownloadNovelInfoJob -> 1
-            is DownloadChapterInfoJob -> 2
+            is DownloadChapterListJob -> 2
             is DownloadChapterJob -> 3
         }
     }
@@ -130,21 +130,16 @@ class NovelScheduler {
 
     private suspend fun runJobs() {
         while (true) {
-            val job = schedulerMutex.withLock {
-                mainQueue.firstOrNull()?.also { if (it.isDone) mainQueue.removeFirst() }
-            } ?: return
-            if (job.isDone) {
-                continue
-            }
+            val job = schedulerMutex.withLock { mainQueue.firstOrNull() } ?: return
             Log.d(TAG, "running job: ${job.novel.metadata.id}")
             try {
-                job.executeNextStep()
+                job.execute()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.e(TAG, "job failed for novel ${job.novel.metadata.id}, dropping it", e)
-                schedulerMutex.withLock { mainQueue.remove(job) }
+                Log.e(TAG, "job failed for novel ${job.novel.metadata.id}", e)
             }
+            schedulerMutex.withLock { mainQueue.remove(job) }
         }
     }
 }

@@ -10,7 +10,8 @@ class CrawlerTest {
         override suspend fun loadPage(url: String, waitFor: String?, timeoutMs: Long) = null
     })
 
-    private fun toMarkdown(html: String) = crawler.toMarkdown(Jsoup.parseBodyFragment(html).body())
+    private fun toMarkdown(html: String, filter: HtmlFilter = Crawler.DEFAULT_FILTER) =
+        crawler.toMarkdown(Jsoup.parseBodyFragment(html).body(), filter)
 
     // Both cases are the "Parse bugs" from TODO.txt.
     @Test
@@ -42,12 +43,12 @@ class CrawlerTest {
 
     @Test
     fun `blacklist drops matching lines but keeps paragraph breaks`() {
-        crawler.currentFilter = Crawler.DEFAULT_FILTER.copy(
+        val filter = Crawler.DEFAULT_FILTER.copy(
             blacklistRegexes = setOf(Regex("lightnovelpub\\.com"))
         )
         assertEquals(
             "One.\n\nThree.",
-            toMarkdown("<p>One.</p><p>Read at lightnovelpub.com</p><p>Three.</p>")
+            toMarkdown("<p>One.</p><p>Read at lightnovelpub.com</p><p>Three.</p>", filter)
         )
     }
 }

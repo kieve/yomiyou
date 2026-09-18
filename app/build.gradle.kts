@@ -34,6 +34,7 @@ android {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
     }
     testOptions {
+        unitTests.isReturnDefaultValues = true // android.util.Log etc. become no-ops on the JVM
         unitTests.all { it.useJUnitPlatform() }
     }
 }
@@ -62,12 +63,12 @@ dependencies {
     ksp(libs.room.compiler)
 
     implementation(libs.jsoup) // Requesting and parsing HTML
-    implementation(libs.jackson.kotlin)
     implementation(libs.coil.compose)
     implementation(libs.compose.markdown)
 
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)
+    testImplementation(libs.jackson.kotlin)
 
     androidTestImplementation(libs.androidx.test.junit)
     androidTestImplementation(libs.androidx.test.espresso)

@@ -57,6 +57,7 @@ fun NovelInfoScreen(
 
     LaunchedEffect(Unit) {
         scheduler.setActiveNovel(novelId)
+        novelRepository.loadNovelDetails(novelId)
     }
 
     val novels by novelRepository.novels.collectAsState()

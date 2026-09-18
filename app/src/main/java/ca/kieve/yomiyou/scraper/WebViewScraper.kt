@@ -11,13 +11,19 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import ca.kieve.yomiyou.util.getTag
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
+import java.io.File
 import java.io.StringReader
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlin.coroutines.resume
 
 class WebViewScraper(context: Context) : Scraper {
@@ -25,11 +31,16 @@ class WebViewScraper(context: Context) : Scraper {
         private val TAG = getTag()
         private const val GET_HTML_JS = "(function() { return ('<html>'+document.getElementsByTagName('html')[0].innerHTML+'</html>'); })();"
         private const val POLL_MS = 250L
+        private const val CAPTURE_KEEP = 20
     }
 
     private val mutex = Mutex()
     private val mainThread = Handler(Looper.getMainLooper())
     private var pageFinished = CompletableDeferred<Unit>()
+
+    // Every page the scraper saw (or was stuck on), for debugging parsers and grabbing fixtures:
+    // Device Explorer -> data/data/ca.kieve.yomiyou/cache/scraper/
+    private val captureDir = File(context.cacheDir, "scraper")
 
     @SuppressLint("SetJavaScriptEnabled")
     val webView = WebView(context).apply {
@@ -71,6 +82,9 @@ class WebViewScraper(context: Context) : Scraper {
             }
             if (html == null) {
                 Log.w(TAG, "loadPage: timed out after ${timeoutMs}ms: $url")
+                capture(url, evalJs(GET_HTML_JS), "TIMEOUT")
+            } else {
+                capture(url, html, "ok")
             }
             html
         }
@@ -83,5 +97,18 @@ class WebViewScraper(context: Context) : Scraper {
                 cont.resume(if (reader.peek() == JsonToken.STRING) reader.nextString() else null)
             }
         }
+    }
+
+    private suspend fun capture(url: String, html: String?, status: String) = withContext(Dispatchers.IO) {
+        runCatching {
+            captureDir.mkdirs()
+            val stamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
+            val slug = url.substringAfter("://").replace(Regex("[^A-Za-z0-9._-]+"), "_").take(80)
+            File(captureDir, "$stamp-$status-$slug.html").writeText(html ?: "")
+            captureDir.listFiles()
+                ?.sortedBy { it.name }
+                ?.dropLast(CAPTURE_KEEP)
+                ?.forEach { it.delete() }
+        }.onFailure { Log.w(TAG, "capture failed", it) }
     }
 }

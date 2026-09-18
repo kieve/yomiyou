@@ -3,8 +3,11 @@ package ca.kieve.yomiyou
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
 import androidx.compose.runtime.Composable
@@ -30,11 +33,11 @@ fun MyApp(content: @Composable () -> Unit) {
     YomiyouTheme {
         Surface(
             color = MaterialTheme.colors.background,
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight())
-        {
-            content()
+            modifier = Modifier.fillMaxSize()
+        ) {
+            Box(Modifier.windowInsetsPadding(WindowInsets.safeDrawing)) {
+                content()
+            }
         }
     }
 }

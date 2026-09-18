@@ -2,12 +2,9 @@ package ca.kieve.yomiyou.crawler
 
 import ca.kieve.yomiyou.copydown.CopyDown
 import ca.kieve.yomiyou.crawler.model.ChapterInfo
-import ca.kieve.yomiyou.crawler.model.ChapterListInfo
 import ca.kieve.yomiyou.crawler.model.NovelInfo
-import ca.kieve.yomiyou.crawler.source.en.l.LightNovelPub
+import ca.kieve.yomiyou.crawler.source.NovelPhoenix
 import ca.kieve.yomiyou.scraper.Scraper
-import org.jsoup.Jsoup
-import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 
 data class HtmlFilter(
@@ -17,15 +14,11 @@ data class HtmlFilter(
     val blacklistRegexes: Set<Regex>
 )
 
-class Crawler(val scraper: Scraper) {
+class Crawler(scraper: Scraper) {
     companion object {
         // Control and format characters (zero-width joiners, soft hyphens, BOMs...), minus the
         // newline, which is Markdown structure.
         private val NON_PRINTABLE_CHARS = Regex("[\\p{Cc}\\p{Cf}&&[^\\n]]")
-
-        private val SOURCES = listOf<SourceCrawler>(
-            LightNovelPub()
-        )
 
         private val BAD_TAGS: Set<String> = hashSetOf(
             "noscript", "script", "style", "iframe", "ins", "header", "footer", "button", "input",
@@ -54,117 +47,36 @@ class Crawler(val scraper: Scraper) {
         )
     }
 
-    private data class SourceMatch(
-        val source: SourceCrawler,
-        val baseUrl: String
+    private val sources: List<NovelSource> = listOf(
+        NovelPhoenix(scraper)
     )
 
-    /*
-     * Current crawler state, resets when switching to a new source
-     */
-
-    private var currentSource: SourceCrawler? = null
-    var currentNovelUrl: String? = null
-        private set
-
-    // Intended to be modified by SourceCrawlers
-    var currentFilter: HtmlFilter = DEFAULT_FILTER
-
-    private fun getSource(url: String): SourceMatch? {
-        for (sourceCrawler in SOURCES) {
-            for (baseUrl in sourceCrawler.baseUrls) {
-                if (url.startsWith(baseUrl)) {
-                    return SourceMatch(
-                        source = sourceCrawler,
-                        baseUrl = baseUrl
-                    )
-                }
-            }
-        }
-        return null
-    }
-
-    private fun initSource(url: String): Boolean {
-        // Reset our filter, since it might have been changed by the previous source
-        currentFilter = DEFAULT_FILTER
-
-        // Clear our source, we'll set a new one if we find one for this new URL
-        currentSource = null
-        currentNovelUrl = null
-
-        val source = getSource(url) ?: return false
-        source.source.initCrawler(this)
-        currentSource = source.source
-        return true
-    }
+    private fun sourceFor(url: String): NovelSource? = sources.firstOrNull { it.owns(url) }
 
     fun areSameNovel(aUrl: String, bUrl: String): Boolean {
-        val aSource = getSource(aUrl)
-        val bSource = getSource(bUrl)
-        if (aSource == null && bSource == null) {
-            // Fallback to a simple string comparison
-            return aUrl == bUrl
-        }
-        if (aSource == null || bSource == null) {
-            // We didn't find a source for one of the two, so assume they're different novels
-            return false
-        }
-        if (aSource.source !== bSource.source) {
-            // They aren't from the same source, so they can't be equal
-            return false
-        }
-
-        // Defer to the source to decide
-        return aSource.source.areSameNovel(aUrl, bUrl)
+        return aUrl.trimEnd('/') == bUrl.trimEnd('/')
     }
 
-    suspend fun getSoup(url: String, waitFor: String? = null): Document {
-        val html = scraper.loadPage(url, waitFor)
-        return Jsoup.parse(html ?: "", url)
-    }
+    suspend fun searchNovels(query: String): List<NovelInfo> = sources[0].search(query)
 
     suspend fun getNovelInfo(novelUrl: String): NovelInfo? {
-        if (!initSource(novelUrl)) {
-            return null
-        }
-
-        currentNovelUrl = novelUrl
-        return currentSource?.getInfo(this)
+        return sourceFor(novelUrl)?.novelInfo(novelUrl)
     }
 
-    suspend fun getChapterListInfo(novelUrl: String): ChapterListInfo {
-        if (!initSource(novelUrl)) {
-            return ChapterListInfo(totalPages = 0)
-        }
-
-        currentNovelUrl = novelUrl
-        return currentSource?.getChapterListInfo(this) ?: ChapterListInfo(totalPages = 0)
+    suspend fun getChapters(novelUrl: String): List<ChapterInfo> {
+        return sourceFor(novelUrl)?.chapters(novelUrl) ?: emptyList()
     }
 
-    suspend fun getChapterListPage(novelUrl: String, page: Int): List<ChapterInfo> {
-        if (!initSource(novelUrl)) {
-            return emptyList()
-        }
-
-        currentNovelUrl = novelUrl
-        return currentSource?.getChapterListPage(this, page) ?: emptyList()
+    /** @return The chapter as Markdown, or null if it couldn't be fetched. */
+    suspend fun downloadChapter(chapterUrl: String): String? {
+        val source = sourceFor(chapterUrl) ?: return null
+        val html = source.rawChapterHtml(chapterUrl) ?: return null
+        return toMarkdown(html, source.filter)
     }
 
-    suspend fun downloadChapter(chapterUrl: String): Element? {
-        if (!initSource(chapterUrl)) {
-            return null
-        }
-
-        return currentSource?.downloadChapter(this, chapterUrl)
-    }
-
-    suspend fun searchNovels(query: String): List<NovelInfo> {
-        return SOURCES[0].search(this, query)
-    }
-
-    private fun cleanContents(div: Element) {
-        if (currentFilter.badCss.isNotEmpty()) {
-            for (bad in div.select(currentFilter.badCss.joinToString(","))) {
+    private fun cleanContents(div: Element, filter: HtmlFilter) {
+        if (filter.badCss.isNotEmpty()) {
+            for (bad in div.select(filter.badCss.joinToString(","))) {
                 bad.remove()
             }
         }
@@ -175,7 +87,7 @@ class Crawler(val scraper: Scraper) {
                 if (next != null && next.nodeName().lowercase() == "br") {
                     next.remove()
                 }
-            } else if (currentFilter.badTags.contains(tag.tagName())) {
+            } else if (filter.badTags.contains(tag.tagName())) {
                 tag.remove()
             } else if (tag.attributesSize() > 0) {
                 // Drop everything but image sources; links become plain text.
@@ -190,20 +102,16 @@ class Crawler(val scraper: Scraper) {
         div.clearAttributes()
     }
 
-    private fun isInBlacklist(line: String): Boolean {
-        return currentFilter.blacklistRegexes.any { regex -> regex.containsMatchIn(line) }
-    }
-
     /** Strips ads/junk from [tag] (in place) and converts what's left to Markdown. */
-    fun toMarkdown(tag: Element): String {
-        cleanContents(tag)
+    fun toMarkdown(tag: Element, filter: HtmlFilter = DEFAULT_FILTER): String {
+        cleanContents(tag, filter)
         var markdown = CopyDown().convert(tag.html())
             .replace(NON_PRINTABLE_CHARS, "")
-        for ((key, value) in currentFilter.substitutions) {
+        for ((key, value) in filter.substitutions) {
             markdown = markdown.replace(key, value)
         }
         return markdown.lines()
-            .filterNot { line -> isInBlacklist(line) }
+            .filterNot { line -> filter.blacklistRegexes.any { it.containsMatchIn(line) } }
             .joinToString("\n")
             .replace(Regex("\n{3,}"), "\n\n")
     }
