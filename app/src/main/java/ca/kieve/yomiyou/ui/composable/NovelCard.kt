@@ -5,10 +5,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.material.Card
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Text
+import androidx.compose.material3.Card
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,15 +23,12 @@ fun NovelCard(
     title: String,
     subTitle: String,
     coverUrl: String?,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .wrapContentHeight(),
-        shape = MaterialTheme.shapes.medium,
-        elevation = 5.dp,
-        backgroundColor = MaterialTheme.colors.surface
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth()
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically
@@ -50,14 +46,13 @@ fun NovelCard(
             Column(Modifier.padding(8.dp)) {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.h5,
-                    color = MaterialTheme.colors.onSurface,
+                    style = MaterialTheme.typography.titleLarge,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = subTitle,
-                    style = MaterialTheme.typography.body2
+                    style = MaterialTheme.typography.bodyMedium
                 )
             }
         }

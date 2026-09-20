@@ -15,19 +15,19 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.Button
-import androidx.compose.material.ButtonDefaults
-import androidx.compose.material.Divider
-import androidx.compose.material.Icon
-import androidx.compose.material.IconButton
-import androidx.compose.material.LocalContentColor
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Scaffold
-import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.Favorite
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -82,31 +82,27 @@ fun NovelInfoScreen(
                 }
             }
         }
-    ) {
-        Column(
-            Modifier.padding(
-                start = 16.dp,
-                end = 16.dp
-            )
+    ) { innerPadding ->
+        val shownNovel = novel ?: return@Scaffold
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(innerPadding)
+                .padding(horizontal = 16.dp)
         ) {
-            val shownNovel = novel ?: return@Column
-            LazyColumn(
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                item {
-                    NovelInfo(
-                        novelRepository = novelRepository,
-                        novel = shownNovel
-                    )
-                }
+            item {
+                NovelInfo(
+                    novelRepository = novelRepository,
+                    novel = shownNovel
+                )
+            }
 
-                items(chapters, key = { it.url }) { chapter ->
-                    ChapterRow(
-                        navController = navController,
-                        novel = shownNovel,
-                        chapter = chapter
-                    )
-                }
+            items(chapters, key = { it.url }) { chapter ->
+                ChapterRow(
+                    navController = navController,
+                    novel = shownNovel,
+                    chapter = chapter
+                )
             }
         }
     }
@@ -137,8 +133,7 @@ fun NovelInfo(
         ) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.h6,
-                color = MaterialTheme.colors.onSurface,
+                style = MaterialTheme.typography.titleLarge,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
@@ -205,15 +200,15 @@ private fun ChapterRow(
                 .width(100.dp)
                 .padding(end = 4.dp),
             text = stringResource(R.string.yomi_shortChapterNum, chapter.position),
-            style = MaterialTheme.typography.h5
+            style = MaterialTheme.typography.headlineSmall
         )
         Text(
             text = chapter.title,
-            style = MaterialTheme.typography.h5,
+            style = MaterialTheme.typography.headlineSmall,
             color = LocalContentColor.current.copy(alpha = if (chapter.downloaded) 1f else 0.4f),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
     }
-    Divider()
+    HorizontalDivider()
 }

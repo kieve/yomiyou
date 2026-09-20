@@ -15,8 +15,7 @@
         <activity
             android:name=".YomiActivity"
             android:exported="true"
-            android:label="@string/app_name"
-            android:theme="@style/Theme.Yomiyou.NoActionBar">
+            android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

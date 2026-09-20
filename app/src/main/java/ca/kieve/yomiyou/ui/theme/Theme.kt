@@ -1,32 +1,16 @@
 package ca.kieve.yomiyou.ui.theme
 
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.darkColors
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color.Companion.Black
-import androidx.compose.ui.graphics.Color.Companion.White
+import androidx.compose.ui.graphics.Color
 
-private val DarkColorPalette = darkColors(
-    primary = Blue700,
-    primaryVariant = Blue500,
-    onPrimary = White,
-
-    secondary = Blue500,
-    onSecondary = White,
-
-    background = Black,
-    onBackground = White,
-
-    surface = DarkGray,
-    onSurface = White
+private val DarkColorScheme = darkColorScheme(
+    background = Color.Black,
+    surface = Color.Black
 )
 
 @Composable
 fun YomiyouTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colors = DarkColorPalette,
-        typography = Typography,
-        shapes = Shapes,
-        content = content
-    )
+    MaterialTheme(colorScheme = DarkColorScheme, content = content)
 }

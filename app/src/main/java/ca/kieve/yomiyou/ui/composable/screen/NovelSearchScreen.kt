@@ -1,6 +1,5 @@
 package ca.kieve.yomiyou.ui.composable.screen
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -9,10 +8,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.LinearProgressIndicator
-import androidx.compose.material.Surface
-import androidx.compose.material.Text
-import androidx.compose.material.TextField
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -112,12 +111,11 @@ private fun SearchResults(
                 title = novel.title,
                 subTitle = novel.author ?: "",
                 coverUrl = novel.coverUrl,
-                modifier = Modifier
-                    .clickable {
-                        navController.navigate(
-                            YomiScreen.NovelInfoNav.withArgs(novel.id.toString())
-                        )
-                    }
+                onClick = {
+                    navController.navigate(
+                        YomiScreen.NovelInfoNav.withArgs(novel.id.toString())
+                    )
+                }
             )
         }
     }

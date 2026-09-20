@@ -1,22 +1,21 @@
 package ca.kieve.yomiyou.ui.composable.screen
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.FabPosition
-import androidx.compose.material.FloatingActionButton
-import androidx.compose.material.Icon
-import androidx.compose.material.IconButton
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Scaffold
-import androidx.compose.material.Text
-import androidx.compose.material.TopAppBar
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -31,6 +30,7 @@ import ca.kieve.yomiyou.YomiScreen
 import ca.kieve.yomiyou.data.NovelRepository
 import ca.kieve.yomiyou.ui.composable.NovelCard
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NovelListScreen(yomiContext: YomiContext) {
     val navController = yomiContext.navController
@@ -44,7 +44,6 @@ fun NovelListScreen(yomiContext: YomiContext) {
     Scaffold(
         topBar = {
             TopAppBar(
-                backgroundColor = MaterialTheme.colors.background,
                 title = {
                     Text(stringResource(R.string.novelList_title))
                 },
@@ -63,7 +62,6 @@ fun NovelListScreen(yomiContext: YomiContext) {
                 }
             )
         },
-        floatingActionButtonPosition = FabPosition.End,
         floatingActionButton = {
             // Escape hatch: look at what the scraper's WebView is stuck on and solve it by hand.
             FloatingActionButton(
@@ -77,20 +75,21 @@ fun NovelListScreen(yomiContext: YomiContext) {
                 )
             }
         }
-    ) {
-        NovelList(navController, novelRepository)
+    ) { innerPadding ->
+        NovelList(navController, novelRepository, Modifier.padding(innerPadding))
     }
 }
 
 @Composable
 private fun NovelList(
     navController: NavController,
-    novelRepository: NovelRepository
+    novelRepository: NovelRepository,
+    modifier: Modifier = Modifier
 ) {
     val library by novelRepository.library.collectAsState(emptyList())
 
     LazyColumn(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -100,12 +99,11 @@ private fun NovelList(
                 subTitle = stringResource(
                     R.string.novelCard_chapterCount, entry.downloadedCount, entry.chapterCount),
                 coverUrl = entry.novel.coverUrl,
-                modifier = Modifier
-                    .clickable {
-                        navController.navigate(
-                            YomiScreen.NovelInfoNav.withArgs(entry.novel.id.toString())
-                        )
-                    }
+                onClick = {
+                    navController.navigate(
+                        YomiScreen.NovelInfoNav.withArgs(entry.novel.id.toString())
+                    )
+                }
             )
         }
     }

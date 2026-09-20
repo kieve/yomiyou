@@ -36,7 +36,7 @@ Android WebView (a real browser), store every chapter locally as Markdown, read 
 | `YomiContext` | Not a standalone deletion; disappears when screens are rewritten (E). |
 | Room schema version | Stays at **1** until a real release; clear app data on test devices between schema changes. No migrations, no `fallbackToDestructiveMigration`. |
 | LightNovelPub source | Dead (5 years). Delete; Jackson moves to `testImplementation` (only `CopyDownTest` uses it). minSdk can drop back to 24 then, if wanted. |
-| UI toolkit | Still Compose Material 2 + Navigation 2 on purpose. M3 migration happens with the UI rewrite (E), not before. |
+| UI toolkit | Compose Material 3 (since 2026-09-18) + Navigation 2. `ComponentActivity` on the platform `android:Theme.Material.NoActionBar`; appcompat / material-views deps gone. Colors: M3 baseline dark scheme with black `background` / `surface`; type and shapes are M3 defaults. |
 
 ## Current pipeline (as of the 2026-09 toolchain bump)
 
@@ -118,7 +118,8 @@ UI:  YomiNavigation -> NovelList / NovelSearch / NovelInfo / Reader   ui/composa
   resumes from `Novel.chaptersNextPage`. Key-based dedup. `SchedulerPriorityTest`.
   Still open: errors surfaced to the UI; a fixed inter-request delay if the site ever
   needs one.
-- [ ] **E. UI rewrite (M3).** Screens take state + callbacks (no `AppContainer` /
+- [ ] **E. UI rewrite (M3).** *(2026-09-18: M3 swap done — `material3` dep, `ComponentActivity`,
+  Scaffold padding applied, `NovelCard(onClick)`. The rest is still open.)* Screens take state + callbacks (no `AppContainer` /
   `NavController` in composables). Fix: Scaffold padding not applied,
   `Text("Novel is null") // TODO`, debug FAB, `scrollToItem(chapterId - 1)`. Reading
   progress, next / previous chapter, download-state UI.
@@ -146,8 +147,8 @@ UI:  YomiNavigation -> NovelList / NovelSearch / NovelInfo / Reader   ui/composa
 - [x] `Crawler.absoluteUrl` → `absUrl("href")`
 - [x] `Crawler.extractContents` / `internalExtractContents` (bug 3)
 - [x] `LightNovelPub.kt` + Jackson from `implementation` (minSdk 26 no longer forced; still set)
-- [ ] `Theme.MaterialComponents` XML theme + `material` (views) + `appcompat` deps once
-  on `ComponentActivity` (with E)
+- [x] `Theme.MaterialComponents` XML theme + `material` (views) + `appcompat` deps once
+  on `ComponentActivity` (2026-09-18)
 
 ## Keep as-is
 
@@ -163,7 +164,7 @@ active-novel priority; `Crawler.cleanContents` tag/CSS strip lists; `LogUtil.get
 3. [x] Bug 3 (delete `extractContents`), bug 9, rest of the delete list (LightNovelPub + theme XML remain, tied to steps 2 / E).
 4. [x] Data layer: B, bug 5, bug 4, bug 6 (2026-09-18).
 5. [x] D (scheduler: preemption, reading priority, cancel-on-leave, resume) (2026-09-18).
-6. [ ] E (UI on M3, settings page, read progress, errors surfaced), F (needs the settings
+6. [ ] E (M3 swap done 2026-09-18; screens on state + callbacks, settings page, read progress, errors surfaced), F (needs the settings
    page for its interval), C (SAF export).
 
 ## Toolchain notes

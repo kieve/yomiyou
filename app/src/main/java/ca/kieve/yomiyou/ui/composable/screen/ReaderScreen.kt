@@ -8,9 +8,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.Button
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Text
+import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -20,7 +20,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import ca.kieve.yomiyou.YomiContext
 import dev.jeziellago.compose.markdowntext.MarkdownText
 
@@ -50,15 +49,13 @@ fun ReaderScreen(
         val chapter = open?.chapter
         Text(
             text = chapter?.let { "Chapter ${it.position}: ${it.title}" } ?: "No chapter $current",
-            style = MaterialTheme.typography.h6,
-            color = MaterialTheme.colors.onSurface,
+            style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.padding(vertical = 8.dp)
         )
         MarkdownText(
             markdown = open?.content ?: if (chapter != null) "Not downloaded yet." else "",
-            style = MaterialTheme.typography.body1.copy(
-                fontSize = 14.sp,
-                color = MaterialTheme.colors.onSurface
+            style = MaterialTheme.typography.bodyMedium.copy(
+                color = MaterialTheme.colorScheme.onSurface
             ),
             modifier = Modifier.padding(bottom = 8.dp)
         )
