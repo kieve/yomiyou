@@ -6,6 +6,22 @@
 
     <string name="yomi_backContentDescription">Back</string>
 
+    <!-- Home: the navigation -->
+    <string name="home_shelf">Shelf</string>
+    <string name="home_browse">Browse</string>
+    <string name="home_settings">Settings</string>
+
+    <!-- Shelf -->
+    <string name="shelf_empty">No books yet. Add some in Browse.</string>
+
+    <!-- Browse -->
+    <string name="browse_empty">Nothing to browse yet.</string>
+
+    <!-- Settings -->
+    <string name="settings_debug">Debug</string>
+    <string name="settings_webnovelScreens">Webnovel screens</string>
+    <string name="settings_webnovelScreensSummary">The old library, search and reader</string>
+
     <!-- Novel List Screen -->
     <string name="novelList_title">Novel List</string>
     <string name="novelList_searchContentDescription">Search for new Novels</string>

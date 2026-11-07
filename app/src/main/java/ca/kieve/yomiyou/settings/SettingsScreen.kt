@@ -1,0 +1,56 @@
+package ca.kieve.yomiyou.settings
+
+import android.content.Intent
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import ca.kieve.yomiyou.R
+import ca.kieve.yomiyou.YomiActivity
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsScreen() {
+    val context = LocalContext.current
+
+    Scaffold(
+        topBar = {
+            TopAppBar(title = { Text(stringResource(R.string.home_settings)) })
+        }
+    ) { innerPadding ->
+        LazyColumn(contentPadding = innerPadding) {
+            item {
+                SectionHeader(stringResource(R.string.settings_debug))
+            }
+            item {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_webnovelScreens)) },
+                    supportingContent = { Text(stringResource(R.string.settings_webnovelScreensSummary)) },
+                    modifier = Modifier.clickable {
+                        context.startActivity(Intent(context, YomiActivity::class.java))
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SectionHeader(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 8.dp)
+    )
+}
