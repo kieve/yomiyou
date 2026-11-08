@@ -5,6 +5,7 @@ ksp = "2.3.12"
 room = "2.8.5"
 composeBom = "2026.09.00"
 navigation3 = "1.2.1"
+datastore = "1.3.0"
 coil = "3.6.2"
 junit = "6.1.3"
 
@@ -15,6 +16,9 @@ androidx-lifecycle-runtime-ktx = { module = "androidx.lifecycle:lifecycle-runtim
 androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version = "2.10.2" }
 androidx-navigation3-runtime = { module = "androidx.navigation3:navigation3-runtime", version.ref = "navigation3" }
 androidx-navigation3-ui = { module = "androidx.navigation3:navigation3-ui", version.ref = "navigation3" }
+androidx-webkit = { module = "androidx.webkit:webkit", version = "1.18.0" }
+androidx-documentfile = { module = "androidx.documentfile:documentfile", version = "1.1.0" }
+androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastore" }
 
 compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
 compose-material3 = { module = "androidx.compose.material3:material3" }
@@ -33,6 +37,7 @@ coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" 
 coil-network-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp", version.ref = "coil" }
 compose-markdown = { module = "com.github.jeziellago:compose-markdown", version = "0.7.2" }
 jsoup = { module = "org.jsoup:jsoup", version = "1.23.2" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version = "1.12.0" }
 
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }

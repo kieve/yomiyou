@@ -29,10 +29,23 @@ minSdk 26, Java 17, Kotlin DSL and a version catalog. Material and navigation st
 
 ## The new screens
 
-- `home`: `MainActivity` (the launcher), `Home` (the Navigation 3 back stack: the tabs at the bottom, full-screen
-  destinations such as the reader over them), `TabsScreen` (Shelf, Browse and Settings in `NavigationSuiteScaffold`: a
-  bottom bar on a narrow screen, a rail on a wide one).
+- `home`: `MainActivity` (the launcher), `Home` (the library folder prompt on first start, then the Navigation 3 back
+  stack: the tabs at the bottom, the reader over them), `TabsScreen` (Shelf, Browse and Settings in
+  `NavigationSuiteScaffold`: a bottom bar on a narrow screen, a rail on a wide one), `Services` (the new screens'
+  app-wide objects).
 - `shelf`, `browse`, `settings`: a screen each. Settings → Debug starts `YomiActivity`.
+- `book`: `ZipIndex` (a zip's entries read by position, zip64 included), `EnrichedEpub` (an enriched EPUB and its
+  `yomiage.json`; chapters cut as the web reader's `book.ts` cuts them), `Library` (the folder the user chose, through
+  the storage framework: a folder per book, named by `FolderNames`, with its `book.json`), `TestBook`.
+- `reader`: `ReaderBook` (what the reader shows, whatever the kind of book), `ReaderScreen` (the book full screen, system
+  bars hidden; a tap brings up the controls, the chapter drawer and the reader options), `ReaderPage` (the WebView; its
+  page is `assets/reader/`, served with the book's files by a `WebViewAssetLoader`: the whole book as one scroll, five
+  chapters loaded at a time around the reader), `ReadingStyle` (app-wide, as CSS variables on the page).
+- Debug builds bundle the test book named by `yomiyou.testBook` in `local.properties`: yomiage's output folder for one
+  book. Books are copyrighted and the repo is public: never commit one. Settings → Debug → Test book copies it into the
+  library and opens it.
+- `src/test/resources/epub/kumo-no-ito.yomiage.epub`: 蜘蛛の糸 (public domain) enriched by yomiage's `BuilderTest`; to
+  rebuild it, run that test in yomiage with `YOMIAGE_FIXTURE_OUT` set to a folder.
 - Icons are Material Symbols vector drawables in `res/drawable` (`ic_<name>.xml`, plus `ic_<name>_filled.xml` for a
   selected tab), copied from `google/material-design-icons` (`symbols/android`), not `material-icons-extended`.
 

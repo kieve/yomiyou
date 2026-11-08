@@ -26,7 +26,7 @@ enum class Tab(@StringRes val label: Int, @DrawableRes val icon: Int, @DrawableR
 }
 
 @Composable
-fun TabsScreen() {
+fun TabsScreen(onOpenBook: (String) -> Unit) {
     var current by rememberSaveable { mutableStateOf(Tab.Shelf) }
     val tabStates = rememberSaveableStateHolder()
 
@@ -56,7 +56,7 @@ fun TabsScreen() {
             when (current) {
                 Tab.Shelf -> ShelfScreen()
                 Tab.Browse -> BrowseScreen()
-                Tab.Settings -> SettingsScreen()
+                Tab.Settings -> SettingsScreen(onOpenBook)
             }
         }
     }

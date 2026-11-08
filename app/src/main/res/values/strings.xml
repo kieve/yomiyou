@@ -11,14 +11,33 @@
     <string name="home_browse">Browse</string>
     <string name="home_settings">Settings</string>
 
+    <!-- Library folder, chosen on first start -->
+    <string name="library_title">Choose a folder for your books</string>
+    <string name="library_body">Your books and voices live there. Documents/yomiyou works well.</string>
+    <string name="library_choose">Choose folder</string>
+
     <!-- Shelf -->
     <string name="shelf_empty">No books yet. Add some in Browse.</string>
 
     <!-- Browse -->
     <string name="browse_empty">Nothing to browse yet.</string>
 
+    <!-- Reader -->
+    <string name="reader_back">Back</string>
+    <string name="reader_smaller">Smaller text</string>
+    <string name="reader_larger">Larger text</string>
+    <string name="reader_chapters">Chapters</string>
+    <string name="reader_options">Reader options</string>
+    <string name="reader_textSize">Text size</string>
+    <string name="reader_notFound">This book isn\'t in the library folder.</string>
+
     <!-- Settings -->
+    <string name="settings_library">Library</string>
+    <string name="settings_libraryFolder">Library folder</string>
     <string name="settings_debug">Debug</string>
+    <string name="settings_testBook">Test book</string>
+    <string name="settings_testBookSummary">The book bundled in this debug build</string>
+    <string name="settings_testBookCopying">Copying, %1$d%%</string>
     <string name="settings_webnovelScreens">Webnovel screens</string>
     <string name="settings_webnovelScreensSummary">The old library, search and reader</string>
 
