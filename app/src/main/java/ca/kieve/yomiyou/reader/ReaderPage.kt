@@ -21,7 +21,7 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.int
+import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
@@ -42,7 +42,10 @@ class ReaderPage(
 
         fun onPosition(position: Position)
 
-        fun onTap()
+        /** A single tap, on [phrase] or (null) between phrases. */
+        fun onTap(phrase: Int?)
+
+        fun onDoubleTap()
 
         fun onError(message: String)
     }
@@ -95,6 +98,11 @@ class ReaderPage(
         view.evaluateJavascript("reader.jump($chapter)", null)
     }
 
+    /** Lights the phrase being spoken, in [chapter]; null puts the light out. */
+    fun light(phrase: Int?, chapter: Int) {
+        view.evaluateJavascript("reader.light(${phrase ?: "null"}, $chapter)", null)
+    }
+
     fun applyStyle(style: ReadingStyle) {
         if (style == this.style) return
         this.style = style
@@ -122,7 +130,7 @@ class ReaderPage(
 
     private fun received(data: String) {
         val message = runCatching { Json.parseToJsonElement(data).jsonObject }.getOrNull() ?: return
-        fun int(name: String) = message[name]?.jsonPrimitive?.int
+        fun int(name: String) = message[name]?.jsonPrimitive?.intOrNull
         when (message["type"]?.jsonPrimitive?.content) {
             "ready" -> listener.onReady()
             "need" -> int("chapter")?.takeIf { it in book.chapters.indices }?.let(::add)
@@ -131,7 +139,8 @@ class ReaderPage(
                 val span = int("span") ?: return
                 listener.onPosition(Position(chapter, span))
             }
-            "tap" -> listener.onTap()
+            "tap" -> listener.onTap(int("span"))
+            "double" -> listener.onDoubleTap()
             "error" -> listener.onError(message["message"]?.jsonPrimitive?.content.orEmpty())
         }
     }

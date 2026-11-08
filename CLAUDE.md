@@ -38,9 +38,15 @@ minSdk 26, Java 17, Kotlin DSL and a version catalog. Material and navigation st
   `yomiage.json`; chapters cut as the web reader's `book.ts` cuts them), `Library` (the folder the user chose, through
   the storage framework: a folder per book, named by `FolderNames`, with its `book.json`), `TestBook`.
 - `reader`: `ReaderBook` (what the reader shows, whatever the kind of book), `ReaderScreen` (the book full screen, system
-  bars hidden; a tap brings up the controls, the chapter drawer and the reader options), `ReaderPage` (the WebView; its
+  bars hidden; a single tap jumps the narration to a phrase, a double tap brings up the controls (play, speed, the
+  chapter drawer, the reader options), a hold stays free for the dictionary), `ReaderPage` (the WebView; its
   page is `assets/reader/`, served with the book's files by a `WebViewAssetLoader`: the whole book as one scroll, five
   chapters loaded at a time around the reader), `ReadingStyle` (app-wide, as CSS variables on the page).
+- `narration`: `VoiceFile` (a voice zip: `voice.json` and the timings; the audio read where it lies), `VoiceTimeline`
+  (the phrase spoken at a moment, where a phrase is spoken), `PlaybackService` (Media3's `MediaSessionService`: playing
+  with the screen off, the media notification, the lock screen and the headset), `VoiceDataSource` (segments read out of
+  the zip), `Narration` (the app's side, through a `MediaController`: loads a book, follows the phrase, keeps it as the
+  position while playing, the speed). `home/MiniPlayer` floats over the tabs while a book is narrated.
 - Debug builds bundle the test book named by `yomiyou.testBook` in `local.properties`: yomiage's output folder for one
   book. Books are copyrighted and the repo is public: never commit one. Settings → Debug → Test book copies it into the
   library and opens it.

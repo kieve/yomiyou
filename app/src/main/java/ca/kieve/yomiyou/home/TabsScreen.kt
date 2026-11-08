@@ -3,6 +3,11 @@ package ca.kieve.yomiyou.home
 import androidx.activity.compose.BackHandler
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
@@ -12,6 +17,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import ca.kieve.yomiyou.R
@@ -52,12 +59,18 @@ fun TabsScreen(onOpenBook: (String) -> Unit) {
             }
         }
     ) {
-        tabStates.SaveableStateProvider(current.name) {
-            when (current) {
-                Tab.Shelf -> ShelfScreen()
-                Tab.Browse -> BrowseScreen()
-                Tab.Settings -> SettingsScreen(onOpenBook)
+        Box(Modifier.fillMaxSize()) {
+            tabStates.SaveableStateProvider(current.name) {
+                when (current) {
+                    Tab.Shelf -> ShelfScreen()
+                    Tab.Browse -> BrowseScreen()
+                    Tab.Settings -> SettingsScreen(onOpenBook)
+                }
             }
+            MiniPlayer(
+                onOpen = onOpenBook,
+                modifier = Modifier.align(Alignment.BottomCenter).windowInsetsPadding(WindowInsets.navigationBars)
+            )
         }
     }
 }

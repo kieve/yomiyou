@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -37,6 +38,13 @@ fun Home() {
 @Composable
 private fun Destinations() {
     val backStack = rememberNavBackStack(Tabs)
+    val services = LocalContext.current.services
+    val request by services.openRequests.collectAsState()
+    LaunchedEffect(request) {
+        val bookId = request ?: return@LaunchedEffect
+        if ((backStack.lastOrNull() as? Reader)?.bookId != bookId) backStack.add(Reader(bookId))
+        services.openRequests.value = null
+    }
 
     NavDisplay(
         backStack = backStack,

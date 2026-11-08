@@ -29,6 +29,13 @@
     <string name="reader_chapters">Chapters</string>
     <string name="reader_options">Reader options</string>
     <string name="reader_textSize">Text size</string>
+    <string name="reader_play">Play</string>
+    <string name="reader_pause">Pause</string>
+    <string name="reader_speed">Speed</string>
+    <string name="reader_slower">Slower</string>
+    <string name="reader_faster">Faster</string>
+    <string name="narration_back">Back 10 seconds</string>
+    <string name="narration_forward">Forward 10 seconds</string>
     <string name="reader_notFound">This book isn\'t in the library folder.</string>
 
     <!-- Settings -->

@@ -2,7 +2,9 @@ package ca.kieve.yomiyou.reader
 
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
+import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -13,6 +15,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,6 +30,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -75,6 +80,7 @@ import ca.kieve.yomiyou.book.Position
 import ca.kieve.yomiyou.book.ZipIndex
 import ca.kieve.yomiyou.home.Services
 import ca.kieve.yomiyou.home.services
+import ca.kieve.yomiyou.narration.Speed
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -129,9 +135,18 @@ private fun Reader(entry: LibraryBook, book: EnrichedEpub, onBack: () -> Unit) {
     val services = context.services
     val scope = rememberCoroutineScope()
     val style by services.readingStyle.style.collectAsState(initial = null)
-    val saved = entry.info.position?.takeIf { it.chapter in book.chapters.indices }
-    var chapter by rememberSaveable { mutableIntStateOf(saved?.chapter ?: 0) }
-    var span by rememberSaveable { mutableIntStateOf(saved?.span ?: -1) }
+    val narration = services.narration
+    val narrated by narration.book.collectAsState()
+    val spoken by narration.spoken.collectAsState()
+    val playing by narration.playing.collectAsState()
+    val speed by narration.speed.collectAsState(initial = Speed.DEFAULT)
+    val narrationError by narration.error.collectAsState()
+    val here = narrated?.bookId == entry.info.bookId
+    val following by rememberUpdatedState(here && playing)
+    val start = spoken?.takeIf { here }?.let { Position(it.chapter, it.phrase) }
+        ?: entry.info.position?.takeIf { it.chapter in book.chapters.indices }
+    var chapter by rememberSaveable { mutableIntStateOf(start?.chapter ?: 0) }
+    var span by rememberSaveable { mutableIntStateOf(start?.span ?: -1) }
     var controls by rememberSaveable { mutableStateOf(false) }
     var options by rememberSaveable { mutableStateOf(false) }
     var ready by remember { mutableStateOf(false) }
@@ -146,11 +161,23 @@ private fun Reader(entry: LibraryBook, book: EnrichedEpub, onBack: () -> Unit) {
 
             override fun onPosition(position: Position) {
                 error = null
-                chapter = position.chapter
-                span = position.span
+                // While this book plays, the phrase being spoken is the position, not the screen.
+                if (!following) {
+                    chapter = position.chapter
+                    span = position.span
+                }
             }
 
-            override fun onTap() {
+            override fun onTap(phrase: Int?) {
+                if (controls) {
+                    controls = false
+                    options = false
+                } else if (phrase != null) {
+                    scope.launch { narration.play(entry, chapter, phrase) }
+                }
+            }
+
+            override fun onDoubleTap() {
                 controls = !controls
                 if (!controls) options = false
             }
@@ -168,6 +195,22 @@ private fun Reader(entry: LibraryBook, book: EnrichedEpub, onBack: () -> Unit) {
     }
     LaunchedEffect(style) {
         style?.let { if (ready) page.applyStyle(it) }
+    }
+    LaunchedEffect(ready, here) {
+        if (!ready) return@LaunchedEffect
+        if (!here) {
+            page.light(null, 0)
+            return@LaunchedEffect
+        }
+        // Straight to the page as each phrase starts, not at the next frame's recomposition.
+        withContext(Dispatchers.Main.immediate) {
+            narration.spoken.collect { now ->
+                if (now == null) return@collect
+                page.light(now.phrase, now.chapter)
+                chapter = now.chapter
+                span = now.phrase
+            }
+        }
     }
     LaunchedEffect(chapter, span) {
         if (span < 0) return@LaunchedEffect
@@ -207,6 +250,7 @@ private fun Reader(entry: LibraryBook, book: EnrichedEpub, onBack: () -> Unit) {
                     chapter = index
                     span = -1
                     page.jump(index)
+                    if (here) narration.moveTo(index)
                 }
             }
         }
@@ -230,20 +274,30 @@ private fun Reader(entry: LibraryBook, book: EnrichedEpub, onBack: () -> Unit) {
                 )
             }
             AnimatedVisibility(
-                visible = controls && options,
+                visible = controls,
                 enter = fadeIn() + slideInVertically { it },
                 exit = fadeOut() + slideOutVertically { it },
                 modifier = Modifier.align(Alignment.BottomCenter)
             ) {
-                style?.let { current ->
-                    Options(
-                        style = current,
-                        onSmaller = { scope.launch { services.readingStyle.update { it.smaller() } } },
-                        onLarger = { scope.launch { services.readingStyle.update { it.larger() } } }
-                    )
-                }
+                BottomControls(
+                    style = style,
+                    speed = speed,
+                    playing = here && playing,
+                    options = options,
+                    onPlay = {
+                        if (here) {
+                            narration.toggle()
+                        } else {
+                            scope.launch { narration.play(entry, chapter, span.takeIf { it >= 0 }) }
+                        }
+                    },
+                    onSlower = { scope.launch { narration.changeSpeed(-1) } },
+                    onFaster = { scope.launch { narration.changeSpeed(1) } },
+                    onSmaller = { scope.launch { services.readingStyle.update { it.smaller() } } },
+                    onLarger = { scope.launch { services.readingStyle.update { it.larger() } } }
+                )
             }
-            error?.let {
+            (error ?: narrationError)?.let {
                 Text(
                     it,
                     color = MaterialTheme.colorScheme.error,
@@ -297,31 +351,95 @@ private fun Controls(title: String, onBack: () -> Unit, onChapters: () -> Unit, 
 }
 
 @Composable
-private fun Options(style: ReadingStyle, onSmaller: () -> Unit, onLarger: () -> Unit) {
+private fun BottomControls(
+    style: ReadingStyle?,
+    speed: Float,
+    playing: Boolean,
+    options: Boolean,
+    onPlay: () -> Unit,
+    onSlower: () -> Unit,
+    onFaster: () -> Unit,
+    onSmaller: () -> Unit,
+    onLarger: () -> Unit,
+) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainer,
         tonalElevation = 3.dp,
         shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(Modifier.navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp)) {
-            Text(stringResource(R.string.reader_options), style = MaterialTheme.typography.titleSmall)
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.reader_textSize), modifier = Modifier.weight(1f))
-                IconButton(onClick = onSmaller, enabled = style.textSize > ReadingStyle.MIN_TEXT_SIZE) {
-                    Icon(painterResource(R.drawable.ic_text_decrease), stringResource(R.string.reader_smaller))
-                }
+        Column(Modifier.navigationBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp).animateContentSize()) {
+            if (options && style != null) {
                 Text(
-                    style.textSize.toString(),
-                    style = MaterialTheme.typography.titleMedium,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.width(40.dp)
+                    stringResource(R.string.reader_options),
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.padding(top = 4.dp)
                 )
-                IconButton(onClick = onLarger, enabled = style.textSize < ReadingStyle.MAX_TEXT_SIZE) {
-                    Icon(painterResource(R.drawable.ic_text_increase), stringResource(R.string.reader_larger))
+                Stepper(
+                    label = stringResource(R.string.reader_textSize),
+                    value = style.textSize.toString(),
+                    lessIcon = R.drawable.ic_text_decrease,
+                    less = stringResource(R.string.reader_smaller),
+                    canLess = style.textSize > ReadingStyle.MIN_TEXT_SIZE,
+                    onLess = onSmaller,
+                    moreIcon = R.drawable.ic_text_increase,
+                    more = stringResource(R.string.reader_larger),
+                    canMore = style.textSize < ReadingStyle.MAX_TEXT_SIZE,
+                    onMore = onLarger,
+                )
+                HorizontalDivider(Modifier.padding(vertical = 8.dp))
+            }
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                FilledIconButton(onClick = onPlay) {
+                    if (playing) {
+                        Icon(painterResource(R.drawable.ic_pause), stringResource(R.string.reader_pause))
+                    } else {
+                        Icon(painterResource(R.drawable.ic_play_arrow), stringResource(R.string.reader_play))
+                    }
                 }
+                Spacer(Modifier.width(16.dp))
+                Stepper(
+                    label = stringResource(R.string.reader_speed),
+                    value = Speed.label(speed),
+                    lessIcon = R.drawable.ic_remove,
+                    less = stringResource(R.string.reader_slower),
+                    canLess = speed > Speed.MIN,
+                    onLess = onSlower,
+                    moreIcon = R.drawable.ic_add,
+                    more = stringResource(R.string.reader_faster),
+                    canMore = speed < Speed.MAX,
+                    onMore = onFaster,
+                    modifier = Modifier.weight(1f)
+                )
             }
         }
+    }
+}
+
+@Composable
+private fun Stepper(
+    label: String,
+    value: String,
+    @DrawableRes lessIcon: Int,
+    less: String,
+    canLess: Boolean,
+    onLess: () -> Unit,
+    @DrawableRes moreIcon: Int,
+    more: String,
+    canMore: Boolean,
+    onMore: () -> Unit,
+    modifier: Modifier = Modifier.fillMaxWidth(),
+) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
+        Text(label, modifier = Modifier.weight(1f))
+        IconButton(onClick = onLess, enabled = canLess) { Icon(painterResource(lessIcon), less) }
+        Text(
+            value,
+            style = MaterialTheme.typography.titleMedium,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.width(56.dp)
+        )
+        IconButton(onClick = onMore, enabled = canMore) { Icon(painterResource(moreIcon), more) }
     }
 }
 

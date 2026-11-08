@@ -33,6 +33,17 @@ class ZipIndex private constructor(private val source: RandomAccess, private val
 
     fun text(name: String): String = read(name).decodeToString()
 
+    /** Where an uncompressed entry's bytes lie in the file, to be read as they are (a voice file's audio). */
+    fun storedRange(name: String): LongRange {
+        val entry = entries[name] ?: throw IOException("No $name in the zip")
+        if (entry.method != STORED) throw IOException("$name is compressed")
+        val start = dataOffset(entry)
+        return start until start + entry.size
+    }
+
+    /** Reads bytes from the file the index was opened on: where [storedRange] points. */
+    fun readFully(position: Long, into: ByteBuffer) = source.readFully(position, into)
+
     private fun dataOffset(entry: Entry): Long {
         val header = buffer(LOCAL_HEADER_SIZE)
         source.readFully(entry.headerOffset, header)

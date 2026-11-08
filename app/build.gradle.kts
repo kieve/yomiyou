@@ -104,6 +104,8 @@ dependencies {
     implementation(libs.androidx.webkit)
     implementation(libs.androidx.documentfile)
     implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.media3.exoplayer)
+    implementation(libs.androidx.media3.session)
     implementation(libs.kotlinx.serialization.json)
 
     implementation(platform(libs.compose.bom))

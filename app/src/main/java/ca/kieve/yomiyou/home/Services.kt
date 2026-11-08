@@ -4,10 +4,12 @@ import android.content.Context
 import androidx.datastore.preferences.preferencesDataStore
 import ca.kieve.yomiyou.book.Library
 import ca.kieve.yomiyou.book.TestBook
+import ca.kieve.yomiyou.narration.Narration
 import ca.kieve.yomiyou.reader.ReadingStyleStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
 
 private val Context.settings by preferencesDataStore(name = "settings")
 
@@ -18,6 +20,10 @@ class Services private constructor(context: Context) {
     val library = Library(context, context.settings)
     val readingStyle = ReadingStyleStore(context.settings)
     val testBook = TestBook(context, library, scope)
+    val narration = Narration(context, library, context.settings)
+
+    /** A book to open in the reader, asked for from outside the screens (the media notification). */
+    val openRequests = MutableStateFlow<String?>(null)
 
     companion object {
         @Volatile

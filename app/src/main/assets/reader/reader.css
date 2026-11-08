@@ -2,7 +2,7 @@
 :root { --bg: #000; --fg: #e6e6ea; --text-size: 20px; color-scheme: dark; }
 /* reader.js keeps the place itself when chapters come and go. */
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); overflow-anchor: none;
-             -webkit-tap-highlight-color: transparent; }
+             -webkit-tap-highlight-color: transparent; touch-action: pan-x pan-y; }
 body { box-sizing: border-box; padding: 16px; }
 .text { font-family: serif; font-size: var(--text-size); line-height: 1.9; overflow-anchor: none; }
 .text p { margin: 0; }
@@ -16,3 +16,6 @@ body { box-sizing: border-box; padding: 16px; }
                  overflow-y: hidden; }
 .text.vertical .heading, .text.vertical h1, .text.vertical h2, .text.vertical h3 { margin: 0 1em; }
 rt { font-size: 50%; }
+/* The phrase being spoken. */
+.text .now { background: #ffe58a; color: #1d1d1f; border-radius: 3px; box-shadow: 0 0 0 2px #ffe58a; }
+.text .now rt { color: #1d1d1f; }

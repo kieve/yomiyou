@@ -13,9 +13,15 @@
 
     const post = (message) => window.yomiyouHost?.postMessage(JSON.stringify(message));
 
+    /** How long a tap waits to see whether it's the first of a double tap. */
+    const DOUBLE_TAP = 300;
+
     /** {vertical, count, lo, hi, pending, target}: the loaded chapters are lo..hi. */
     let book = null;
     let spans = [];
+    /** {phrase, chapter}: the phrase being spoken, and its elements lit in the page. */
+    let spoken = null;
+    let lit = [];
 
     const vertical = () => book?.vertical === true;
 
@@ -73,6 +79,24 @@
             text.scrollLeft += box.left - kept.box.left;
         } else {
             scrollBy(0, box.top - kept.box.top);
+        }
+    };
+
+    /** Scrolls only when the phrase has left the screen, then brings it to the middle. */
+    const keepInView = (element) => {
+        const box = element.getBoundingClientRect();
+        const bounds = view();
+        if (box.left < bounds.left || box.right > bounds.right || box.top < bounds.top || box.bottom > bounds.bottom) {
+            element.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
+        }
+    };
+
+    const applyLight = (follow) => {
+        lit.forEach((element) => element.classList.remove("now"));
+        lit = spoken === null ? [] : [...text.querySelectorAll(`[data-y="${spoken.phrase}"]`)];
+        lit.forEach((element) => element.classList.add("now"));
+        if (follow && lit[0]) {
+            keepInView(lit[0]);
         }
     };
 
@@ -184,7 +208,24 @@
             } else {
                 restore(kept);
             }
+            applyLight(false);
             fill();
+        },
+
+        /** Lights the phrase being spoken (null: none), going to its chapter when the page holds another part. */
+        light(phrase, chapter) {
+            if (phrase === null) {
+                spoken = null;
+                applyLight(false);
+                return;
+            }
+            const changed = spoken?.phrase !== phrase;
+            spoken = { phrase, chapter };
+            if (book && (chapter < book.lo || chapter > book.hi) && book.target === null) {
+                reader.open({ vertical: book.vertical, count: book.count, chapter, span: phrase });
+            } else if (changed) {
+                applyLight(true);
+            }
         },
 
         jump(chapter) {
@@ -208,6 +249,20 @@
     };
     text.addEventListener("scroll", scrolled);
     addEventListener("scroll", scrolled);
-    addEventListener("click", () => post({ type: "tap" }));
+    let tap = 0;
+    addEventListener("click", (event) => {
+        if (tap) {
+            clearTimeout(tap);
+            tap = 0;
+            post({ type: "double" });
+            return;
+        }
+        const span = event.target.closest?.("[data-y]");
+        const phrase = span ? Number(span.dataset.y) : null;
+        tap = setTimeout(() => {
+            tap = 0;
+            post({ type: "tap", span: phrase });
+        }, DOUBLE_TAP);
+    });
     post({ type: "ready" });
 })();
