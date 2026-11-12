@@ -2,6 +2,7 @@ package ca.kieve.yomiyou.home
 
 import android.content.Context
 import androidx.datastore.preferences.preferencesDataStore
+import ca.kieve.yomiyou.activity.ActivityLog
 import ca.kieve.yomiyou.book.Library
 import ca.kieve.yomiyou.browse.Importer
 import ca.kieve.yomiyou.narration.Narration
@@ -10,6 +11,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
+import java.io.File
 
 private val Context.settings by preferencesDataStore(name = "settings")
 
@@ -19,7 +21,8 @@ class Services private constructor(context: Context) {
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     val library = Library(context, context.settings)
     val readingStyle = ReadingStyleStore(context.settings)
-    val importer = Importer(context, library, scope)
+    val activity = ActivityLog(File(context.filesDir, "activity.json"))
+    val importer = Importer(context, library, activity, scope)
     val narration = Narration(context, library, context.settings)
 
     /** A book to open in the reader, asked for from outside the screens (the media notification). */

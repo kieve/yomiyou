@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import ca.kieve.yomiyou.R
+import ca.kieve.yomiyou.activity.ActivityScreen
 import ca.kieve.yomiyou.browse.BrowseScreen
 import ca.kieve.yomiyou.settings.SettingsScreen
 import ca.kieve.yomiyou.shelf.ShelfScreen
@@ -29,6 +30,7 @@ import ca.kieve.yomiyou.shelf.ShelfScreen
 enum class Tab(@StringRes val label: Int, @DrawableRes val icon: Int, @DrawableRes val selectedIcon: Int) {
     Shelf(R.string.home_shelf, R.drawable.ic_shelf, R.drawable.ic_shelf_filled),
     Browse(R.string.home_browse, R.drawable.ic_browse, R.drawable.ic_browse_filled),
+    Activity(R.string.home_activity, R.drawable.ic_activity, R.drawable.ic_activity_filled),
     Settings(R.string.home_settings, R.drawable.ic_settings, R.drawable.ic_settings_filled),
 }
 
@@ -64,6 +66,7 @@ fun TabsScreen(onOpenBook: (String) -> Unit) {
                 when (current) {
                     Tab.Shelf -> ShelfScreen(onOpenBook)
                     Tab.Browse -> BrowseScreen()
+                    Tab.Activity -> ActivityScreen()
                     Tab.Settings -> SettingsScreen()
                 }
             }

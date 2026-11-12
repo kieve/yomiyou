@@ -9,6 +9,7 @@
     <!-- Home: the navigation -->
     <string name="home_shelf">Shelf</string>
     <string name="home_browse">Browse</string>
+    <string name="home_activity">Activity</string>
     <string name="home_settings">Settings</string>
 
     <!-- Library folder, chosen on first start -->
@@ -27,8 +28,18 @@
     <!-- Browse -->
     <string name="browse_epubFiles">EPUB files</string>
     <string name="browse_epubFilesSummary">An enriched EPUB and its voice files</string>
-    <string name="browse_checking">Checking the files</string>
-    <string name="browse_copying">Copying %1$s: %2$d%%</string>
+    <string name="browse_busy">Importing: see Activity</string>
+
+    <!-- Activity -->
+    <string name="activity_empty">Nothing yet. Imports show here.</string>
+    <string name="activity_clear">Clear</string>
+    <string name="activity_justNow">Just now</string>
+    <string name="activity_addedNovel">Added novel</string>
+    <plurals name="activity_addedVoiceovers">
+        <item quantity="one">Added voiceover %1$s</item>
+        <item quantity="other">Added voiceovers %1$s</item>
+    </plurals>
+    <string name="activity_interrupted">Interrupted: the app closed before it finished.</string>
 
     <!-- Reader -->
     <string name="reader_back">Back</string>

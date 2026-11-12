@@ -35,7 +35,9 @@ minSdk 26, Java 17, Kotlin DSL and a version catalog. Material and navigation st
   app-wide objects).
 - `shelf`: `ShelfScreen` (covers in a grid, the latest opened first; a long press deletes a book), `ShelfBook` (a book on
   the shelf, whatever its kind; `YomiageShelfBook` for the library's). `browse`: `BrowseScreen` (its `BrowseSource`s; one
-  for now, EPUB files from the system picker), `Importer` (copies picked files into the library). `settings`: Settings
+  for now, EPUB files from the system picker), `Importer` (copies picked files into the library, reporting to the
+  activity log and a toast). `activity`: `ActivityLog` (work and its results, newest first, kept in the app's files; the
+  latest 100) and `ActivityScreen` (the tab). `settings`: Settings
   → Debug starts `YomiActivity`.
 - `book`: `ZipIndex` (a zip's entries read by position, zip64 included), `EnrichedEpub` (an enriched EPUB and its
   `yomiage.json`; chapters cut as the web reader's `book.ts` cuts them), `Library` (the folder the user chose, through
