@@ -120,7 +120,8 @@ fun ReaderScreen(bookId: String, onBack: () -> Unit) {
 
 private suspend fun open(services: Services, bookId: String): Opening? {
     val entry = services.library.find(bookId) ?: return null
-    val file = entry.file("book.epub") ?: return null
+    val file = entry.epub ?: return null
+    runCatching { services.library.updateInfo(entry) { it.copy(lastOpened = System.currentTimeMillis()) } }
     val access = try {
         services.library.open(file)
     } catch (e: IOException) {

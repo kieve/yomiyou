@@ -18,9 +18,17 @@
 
     <!-- Shelf -->
     <string name="shelf_empty">No books yet. Add some in Browse.</string>
+    <string name="shelf_open">Open</string>
+    <string name="shelf_delete">Delete</string>
+    <string name="shelf_cancel">Cancel</string>
+    <string name="shelf_deleteTitle">Delete this book?</string>
+    <string name="shelf_narrated">Narrated</string>
 
     <!-- Browse -->
-    <string name="browse_empty">Nothing to browse yet.</string>
+    <string name="browse_epubFiles">EPUB files</string>
+    <string name="browse_epubFilesSummary">An enriched EPUB and its voice files</string>
+    <string name="browse_checking">Checking the files</string>
+    <string name="browse_copying">Copying %1$s: %2$d%%</string>
 
     <!-- Reader -->
     <string name="reader_back">Back</string>
@@ -43,9 +51,6 @@
     <string name="settings_library">Library</string>
     <string name="settings_libraryFolder">Library folder</string>
     <string name="settings_debug">Debug</string>
-    <string name="settings_testBook">Test book</string>
-    <string name="settings_testBookSummary">The book bundled in this debug build</string>
-    <string name="settings_testBookCopying">Copying, %1$d%%</string>
     <string name="settings_webnovelScreens">Webnovel screens</string>
     <string name="settings_webnovelScreensSummary">The old library, search and reader</string>
 

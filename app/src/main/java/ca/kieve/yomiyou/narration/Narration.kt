@@ -10,7 +10,6 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.documentfile.provider.DocumentFile
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.MimeTypes
@@ -150,7 +149,7 @@ class Narration(
         val numbers = chapterNumbers
         val file = try {
             files[voiceId] ?: withContext(Dispatchers.IO) {
-                val found = entry.file(voiceFileName(voiceId)) ?: throw BookError("This voice's file is missing.")
+                val found = entry.voice(voiceId) ?: throw BookError("This voice's file is missing.")
                 openVoice(found, book.bookId, numbers)
             }
         } catch (e: BookError) {
@@ -271,14 +270,14 @@ class Narration(
     private class Opened(val book: NarratedBook, val voice: VoiceFile, val chapterNumbers: List<Int>)
 
     private fun open(entry: LibraryBook, remembered: String?): Opened {
-        val epubFile = entry.file("book.epub") ?: throw BookError("This book's EPUB is missing.")
+        val epubFile = entry.epub ?: throw BookError("This book's EPUB is missing.")
         val (manifest, cover) = ZipIndex.open(library.open(epubFile)).use { zip ->
             val epub = EnrichedEpub.open(zip)
             epub.manifest to epub.cover()
         }
         val voices = entry.info.voices
         val (choice, file) = (listOfNotNull(VoiceChoice.of(voices, remembered)) + voices)
-            .firstNotNullOfOrNull { info -> entry.file(voiceFileName(info.id))?.let { info to it } }
+            .firstNotNullOfOrNull { info -> entry.voice(info.id)?.let { info to it } }
             ?: throw BookError("No voice files for this book.")
         val numbers = manifest.chapters.map { it.number }
         val voice = openVoice(file, manifest.bookId, numbers)
@@ -294,7 +293,7 @@ class Narration(
         return Opened(book, voice, numbers)
     }
 
-    private fun openVoice(file: DocumentFile, bookId: String, chapterNumbers: List<Int>): VoiceFile {
+    private fun openVoice(file: Uri, bookId: String, chapterNumbers: List<Int>): VoiceFile {
         val access = library.open(file)
         val voice = try {
             VoiceFile.open(ZipIndex.open(access), chapterNumbers)
@@ -377,8 +376,6 @@ class Narration(
         const val TICK_MAX_MS = 250L
         const val LEAD_SECONDS = 0.04
         const val SAVE_EVERY_MS = 5000L
-
-        fun voiceFileName(voiceId: String) = "voice-$voiceId.zip"
 
         fun mediaId(bookId: String, voiceId: String, segment: Int) = "$bookId/$voiceId/$segment"
     }

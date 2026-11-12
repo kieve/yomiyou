@@ -33,24 +33,29 @@ minSdk 26, Java 17, Kotlin DSL and a version catalog. Material and navigation st
   stack: the tabs at the bottom, the reader over them), `TabsScreen` (Shelf, Browse and Settings in
   `NavigationSuiteScaffold`: a bottom bar on a narrow screen, a rail on a wide one), `Services` (the new screens'
   app-wide objects).
-- `shelf`, `browse`, `settings`: a screen each. Settings → Debug starts `YomiActivity`.
+- `shelf`: `ShelfScreen` (covers in a grid, the latest opened first; a long press deletes a book), `ShelfBook` (a book on
+  the shelf, whatever its kind; `YomiageShelfBook` for the library's). `browse`: `BrowseScreen` (its `BrowseSource`s; one
+  for now, EPUB files from the system picker), `Importer` (copies picked files into the library). `settings`: Settings
+  → Debug starts `YomiActivity`.
 - `book`: `ZipIndex` (a zip's entries read by position, zip64 included), `EnrichedEpub` (an enriched EPUB and its
   `yomiage.json`; chapters cut as the web reader's `book.ts` cuts them), `Library` (the folder the user chose, through
-  the storage framework: a folder per book, named by `FolderNames`, with its `book.json`), `TestBook`.
+  the storage framework: a folder per book, named by `FolderNames`, with its `book.json`; folders copied in by hand,
+  and voice files added to one, are picked up as it reads the folder), `BookFiles` (an EPUB from a voice file, what
+  picked files make, the names in a book folder), `VoiceManifest` (`voice.json`).
 - `reader`: `ReaderBook` (what the reader shows, whatever the kind of book), `ReaderScreen` (the book full screen, system
   bars hidden; a single tap jumps the narration to a phrase, a double tap brings up the controls (play, speed, the
   chapter drawer, the reader options), a hold stays free for the dictionary), `ReaderPage` (the WebView; its
   page is `assets/reader/`, served with the book's files by a `WebViewAssetLoader`: the whole book as one scroll, five
   chapters loaded at a time around the reader), `ReadingStyle` (app-wide, as CSS variables on the page).
-- `narration`: `VoiceFile` (a voice zip: `voice.json` and the timings; the audio read where it lies), `VoiceTimeline`
+- `narration`: `VoiceFile` (a voice zip: its manifest and timings; the audio read where it lies), `VoiceTimeline`
   (the phrase spoken at a moment, where a phrase is spoken), `PlaybackService` (Media3's `MediaSessionService`: playing
   with the screen off, the media notification, the lock screen and the headset), `VoiceDataSource` (segments read out of
   the zip), `Narration` (the app's side, through a `MediaController`: loads a book, follows the phrase, keeps it as the
   position while playing, the speed, switching voice at the same phrase), `VoiceChoice` (the voice last chosen if the
   book has it, else its first). `home/MiniPlayer` floats over the tabs while a book is narrated.
-- Debug builds bundle the test book named by `yomiyou.testBook` in `local.properties`: yomiage's output folder for one
-  book. Books are copyrighted and the repo is public: never commit one. Settings → Debug → Test book copies it into the
-  library and opens it.
+- Books are copyrighted and the repo is public: never commit one, nor anything made from one. To try a book on an
+  emulator, push yomiage's output files to a folder the picker can browse (`Documents/import`, not `Download`: the
+  picker reaches that through the media index, which skips files pushed by adb), then add them in Browse.
 - `src/test/resources/epub/kumo-no-ito.yomiage.epub`: 蜘蛛の糸 (public domain) enriched by yomiage's `BuilderTest`; to
   rebuild it, run that test in yomiage with `YOMIAGE_FIXTURE_OUT` set to a folder.
 - Icons are Material Symbols vector drawables in `res/drawable` (`ic_<name>.xml`, plus `ic_<name>_filled.xml` for a

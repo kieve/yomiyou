@@ -62,9 +62,9 @@ fun TabsScreen(onOpenBook: (String) -> Unit) {
         Box(Modifier.fillMaxSize()) {
             tabStates.SaveableStateProvider(current.name) {
                 when (current) {
-                    Tab.Shelf -> ShelfScreen()
+                    Tab.Shelf -> ShelfScreen(onOpenBook)
                     Tab.Browse -> BrowseScreen()
-                    Tab.Settings -> SettingsScreen(onOpenBook)
+                    Tab.Settings -> SettingsScreen()
                 }
             }
             MiniPlayer(

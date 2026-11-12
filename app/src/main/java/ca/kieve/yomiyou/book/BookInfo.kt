@@ -14,6 +14,8 @@ data class BookInfo(
     /** The voices whose files are in the folder, in the book's order. */
     val voices: List<VoiceInfo> = emptyList(),
     val position: Position? = null,
+    /** When the book was last opened or added, in epoch milliseconds: the shelf shows the latest first. */
+    val lastOpened: Long? = null,
 ) {
     fun encode(): String = json.encodeToString(this) + "\n"
 
