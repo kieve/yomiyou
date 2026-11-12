@@ -34,6 +34,7 @@
     <string name="reader_speed">Speed</string>
     <string name="reader_slower">Slower</string>
     <string name="reader_faster">Faster</string>
+    <string name="reader_voice">Voice</string>
     <string name="narration_back">Back 10 seconds</string>
     <string name="narration_forward">Forward 10 seconds</string>
     <string name="reader_notFound">This book isn\'t in the library folder.</string>

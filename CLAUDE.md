@@ -46,7 +46,8 @@ minSdk 26, Java 17, Kotlin DSL and a version catalog. Material and navigation st
   (the phrase spoken at a moment, where a phrase is spoken), `PlaybackService` (Media3's `MediaSessionService`: playing
   with the screen off, the media notification, the lock screen and the headset), `VoiceDataSource` (segments read out of
   the zip), `Narration` (the app's side, through a `MediaController`: loads a book, follows the phrase, keeps it as the
-  position while playing, the speed). `home/MiniPlayer` floats over the tabs while a book is narrated.
+  position while playing, the speed, switching voice at the same phrase), `VoiceChoice` (the voice last chosen if the
+  book has it, else its first). `home/MiniPlayer` floats over the tabs while a book is narrated.
 - Debug builds bundle the test book named by `yomiyou.testBook` in `local.properties`: yomiage's output folder for one
   book. Books are copyrighted and the repo is public: never commit one. Settings → Debug → Test book copies it into the
   library and opens it.

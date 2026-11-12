@@ -9,6 +9,8 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.documentfile.provider.DocumentFile
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.MimeTypes
@@ -40,7 +42,7 @@ import java.io.File
 import java.io.IOException
 
 /** The book being narrated: what the floating player and the notification show. */
-class NarratedBook(
+data class NarratedBook(
     val bookId: String,
     val title: String,
     val author: String,
@@ -77,9 +79,18 @@ class Narration(
 
     val speed: Flow<Float> = store.data.map { Speed.of(it[SPEED]) }
 
+    /** The voice last chosen in a menu, for every book that has it. */
+    val remembered: Flow<String?> = store.data.map { it[VOICE] }
+
     @Volatile
     private var voice: VoiceFile? = null
+
+    /** The narrated book's voices opened so far, left open: the player may still be reading the one it just left. */
+    @Volatile
+    private var files: Map<String, VoiceFile> = emptyMap()
+    private var chapterNumbers: List<Int> = emptyList()
     private var entry: LibraryBook? = null
+    private var wanted: String? = null
     private var controller: MediaController? = null
     private var ticker: Job? = null
     private var lastSaved = 0L
@@ -126,6 +137,45 @@ class Narration(
         }
     }
 
+    /**
+     * Remembers [voiceId] as the voice to narrate in. If [entry] is being narrated, it switches there and then: the
+     * phrase being spoken starts again in the new voice, playing or paused as it was.
+     */
+    suspend fun useVoice(entry: LibraryBook, voiceId: String) {
+        store.edit { it[VOICE] = voiceId }
+        wanted = voiceId
+        val book = _book.value?.takeIf { it.bookId == entry.info.bookId && it.voice != voiceId } ?: return
+        val player = controller ?: return
+        _error.value = null
+        val numbers = chapterNumbers
+        val file = try {
+            files[voiceId] ?: withContext(Dispatchers.IO) {
+                val found = entry.file(voiceFileName(voiceId)) ?: throw BookError("This voice's file is missing.")
+                openVoice(found, book.bookId, numbers)
+            }
+        } catch (e: BookError) {
+            _error.value = e.message
+            return
+        } catch (e: IOException) {
+            _error.value = e.message ?: e.toString()
+            return
+        }
+        val now = _book.value
+        if (now?.bookId != book.bookId || now.voice == voiceId || wanted != voiceId) {
+            if (files[voiceId] !== file) file.close()
+            return
+        }
+        files = files + (voiceId to file)
+        val timeline = file.timeline
+        val target = _spoken.value?.let { timeline.from(it.phrase) } ?: timeline.chapterStart(0) ?: return
+        val switched = now.copy(voice = voiceId)
+        voice = file
+        _book.value = switched
+        player.setMediaItems(items(switched, file), target.segment, (target.start * 1000).toLong())
+        player.prepare()
+        _spoken.value = Spoken(target.chapter, target.phrase)
+    }
+
     /** Moves the narration of the book being narrated to [chapter]'s start, playing or paused as it was. */
     fun moveTo(chapter: Int) {
         val player = controller ?: return
@@ -153,12 +203,11 @@ class Narration(
         unload()
     }
 
-    /** For [VoiceDataSource]: segment bytes of the voice being narrated, by their URI. */
+    /** For [VoiceDataSource]: segment bytes of the book being narrated, by their URI. */
     fun audio(uri: Uri): Pair<VoiceFile, LongRange>? {
-        val voice = voice ?: return null
-        if (uri.scheme != VoiceDataSource.SCHEME || uri.authority != voice.manifest.bookId) return null
+        if (uri.scheme != VoiceDataSource.SCHEME) return null
         val (voiceId, segment) = uri.pathSegments.takeIf { it.size == 2 } ?: return null
-        if (voiceId != voice.manifest.voice) return null
+        val voice = files[voiceId]?.takeIf { it.manifest.bookId == uri.authority } ?: return null
         val index = segment.toIntOrNull()?.takeIf { it in voice.manifest.segments.indices } ?: return null
         return voice to voice.audioRange(index)
     }
@@ -191,11 +240,20 @@ class Narration(
         player.stop()
         player.clearMediaItems()
         unload()
-        val (book, voice) = withContext(Dispatchers.IO) { open(entry) }
-        this.voice = voice
+        val remembered = remembered.first()
+        val opened = withContext(Dispatchers.IO) { open(entry, remembered) }
+        voice = opened.voice
+        files = mapOf(opened.book.voice to opened.voice)
+        chapterNumbers = opened.chapterNumbers
         this.entry = entry
-        _book.value = book
-        val items = voice.manifest.segments.indices.map { segment ->
+        _book.value = opened.book
+        player.setMediaItems(items(opened.book, opened.voice))
+        player.setPlaybackSpeed(speed.first())
+        player.prepare()
+    }
+
+    private fun items(book: NarratedBook, voice: VoiceFile): List<MediaItem> =
+        voice.manifest.segments.indices.map { segment ->
             val chapter = voice.timeline.segmentChapters[segment]
             val metadata = MediaMetadata.Builder()
                 .setTitle(book.title)
@@ -203,36 +261,27 @@ class Narration(
                 .setArtworkUri(book.cover?.let(Uri::fromFile))
                 .build()
             MediaItem.Builder()
-                .setMediaId("${book.bookId}/${book.voice}/$segment")
+                .setMediaId(mediaId(book.bookId, book.voice, segment))
                 .setUri(VoiceDataSource.uri(book.bookId, book.voice, segment))
                 .setMimeType(MimeTypes.AUDIO_OGG)
                 .setMediaMetadata(metadata)
                 .build()
         }
-        player.setMediaItems(items)
-        player.setPlaybackSpeed(speed.first())
-        player.prepare()
-    }
 
-    private fun open(entry: LibraryBook): Pair<NarratedBook, VoiceFile> {
+    private class Opened(val book: NarratedBook, val voice: VoiceFile, val chapterNumbers: List<Int>)
+
+    private fun open(entry: LibraryBook, remembered: String?): Opened {
         val epubFile = entry.file("book.epub") ?: throw BookError("This book's EPUB is missing.")
         val (manifest, cover) = ZipIndex.open(library.open(epubFile)).use { zip ->
             val epub = EnrichedEpub.open(zip)
             epub.manifest to epub.cover()
         }
-        val choice = entry.info.voices.firstNotNullOfOrNull { info -> entry.file("voice-${info.id}.zip")?.let { info to it } }
+        val voices = entry.info.voices
+        val (choice, file) = (listOfNotNull(VoiceChoice.of(voices, remembered)) + voices)
+            .firstNotNullOfOrNull { info -> entry.file(voiceFileName(info.id))?.let { info to it } }
             ?: throw BookError("No voice files for this book.")
-        val access = library.open(choice.second)
-        val voice = try {
-            VoiceFile.open(ZipIndex.open(access), manifest.chapters.map { it.number })
-        } catch (e: Exception) {
-            access.close()
-            throw e
-        }
-        if (voice.manifest.bookId != manifest.bookId) {
-            voice.close()
-            throw BookError("This voice file belongs to another book.")
-        }
+        val numbers = manifest.chapters.map { it.number }
+        val voice = openVoice(file, manifest.bookId, numbers)
         val coverFile = cover?.let {
             val extension = if (it.mediaType == "image/png") "png" else "jpg"
             File(context.cacheDir, "covers/${manifest.bookId}.$extension").apply {
@@ -241,8 +290,23 @@ class Narration(
             }
         }
         val labels = manifest.chapters.map { it.title.ifEmpty { it.number.toString() } }
-        val book = NarratedBook(manifest.bookId, manifest.title, manifest.author, labels, choice.first.id, coverFile)
-        return book to voice
+        val book = NarratedBook(manifest.bookId, manifest.title, manifest.author, labels, choice.id, coverFile)
+        return Opened(book, voice, numbers)
+    }
+
+    private fun openVoice(file: DocumentFile, bookId: String, chapterNumbers: List<Int>): VoiceFile {
+        val access = library.open(file)
+        val voice = try {
+            VoiceFile.open(ZipIndex.open(access), chapterNumbers)
+        } catch (e: Exception) {
+            access.close()
+            throw e
+        }
+        if (voice.manifest.bookId != bookId) {
+            voice.close()
+            throw BookError("This voice file belongs to another book.")
+        }
+        return voice
     }
 
     /** The service's player, in this process: its position is exact, where the controller's is an estimate. */
@@ -263,9 +327,14 @@ class Narration(
      */
     private fun follow(): Long {
         val player = exact ?: controller ?: return TICK_MAX_MS
-        val timeline = voice?.timeline ?: return TICK_MAX_MS
+        val voice = voice ?: return TICK_MAX_MS
         if (player.mediaItemCount == 0) return TICK_MAX_MS
         val segment = player.currentMediaItemIndex
+        // Right after a voice switch, the service's player can still be on the old voice for a moment.
+        if (player.currentMediaItem?.mediaId != mediaId(voice.manifest.bookId, voice.manifest.voice, segment)) {
+            return TICK_MIN_MS
+        }
+        val timeline = voice.timeline
         // A little ahead of the voice: the page takes a frame or two to show the light.
         val seconds = player.currentPosition / 1000.0 + LEAD_SECONDS
         timeline.phraseAt(segment, seconds)?.let { timing ->
@@ -291,8 +360,10 @@ class Narration(
 
     private fun unload() {
         ticker?.cancel()
-        voice?.close()
+        files.values.forEach { it.close() }
+        files = emptyMap()
         voice = null
+        chapterNumbers = emptyList()
         entry = null
         _book.value = null
         _spoken.value = null
@@ -301,9 +372,14 @@ class Narration(
 
     private companion object {
         val SPEED = floatPreferencesKey("narration.speed")
+        val VOICE = stringPreferencesKey("narration.voice")
         const val TICK_MIN_MS = 8L
         const val TICK_MAX_MS = 250L
         const val LEAD_SECONDS = 0.04
         const val SAVE_EVERY_MS = 5000L
+
+        fun voiceFileName(voiceId: String) = "voice-$voiceId.zip"
+
+        fun mediaId(bookId: String, voiceId: String, segment: Int) = "$bookId/$voiceId/$segment"
     }
 }

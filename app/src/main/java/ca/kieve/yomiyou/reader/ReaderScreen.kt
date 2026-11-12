@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -29,6 +30,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.HorizontalDivider
@@ -77,10 +80,12 @@ import ca.kieve.yomiyou.book.BookError
 import ca.kieve.yomiyou.book.EnrichedEpub
 import ca.kieve.yomiyou.book.LibraryBook
 import ca.kieve.yomiyou.book.Position
+import ca.kieve.yomiyou.book.VoiceInfo
 import ca.kieve.yomiyou.book.ZipIndex
 import ca.kieve.yomiyou.home.Services
 import ca.kieve.yomiyou.home.services
 import ca.kieve.yomiyou.narration.Speed
+import ca.kieve.yomiyou.narration.VoiceChoice
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -141,7 +146,10 @@ private fun Reader(entry: LibraryBook, book: EnrichedEpub, onBack: () -> Unit) {
     val playing by narration.playing.collectAsState()
     val speed by narration.speed.collectAsState(initial = Speed.DEFAULT)
     val narrationError by narration.error.collectAsState()
+    val remembered by narration.remembered.collectAsState(initial = null)
     val here = narrated?.bookId == entry.info.bookId
+    val voices = entry.info.voices
+    val voice = voices.firstOrNull { here && it.id == narrated?.voice } ?: VoiceChoice.of(voices, remembered)
     val following by rememberUpdatedState(here && playing)
     val start = spoken?.takeIf { here }?.let { Position(it.chapter, it.phrase) }
         ?: entry.info.position?.takeIf { it.chapter in book.chapters.indices }
@@ -284,6 +292,9 @@ private fun Reader(entry: LibraryBook, book: EnrichedEpub, onBack: () -> Unit) {
                     speed = speed,
                     playing = here && playing,
                     options = options,
+                    voices = voices,
+                    voice = voice,
+                    onVoice = { id -> scope.launch { narration.useVoice(entry, id) } },
                     onPlay = {
                         if (here) {
                             narration.toggle()
@@ -356,6 +367,9 @@ private fun BottomControls(
     speed: Float,
     playing: Boolean,
     options: Boolean,
+    voices: List<VoiceInfo>,
+    voice: VoiceInfo?,
+    onVoice: (String) -> Unit,
     onPlay: () -> Unit,
     onSlower: () -> Unit,
     onFaster: () -> Unit,
@@ -389,6 +403,7 @@ private fun BottomControls(
                 )
                 HorizontalDivider(Modifier.padding(vertical = 8.dp))
             }
+            if (voices.isNotEmpty()) VoiceMenu(voices, voice, onVoice)
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                 FilledIconButton(onClick = onPlay) {
                     if (playing) {
@@ -411,6 +426,49 @@ private fun BottomControls(
                     onMore = onFaster,
                     modifier = Modifier.weight(1f)
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun VoiceMenu(voices: List<VoiceInfo>, voice: VoiceInfo?, onVoice: (String) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+        Text(stringResource(R.string.reader_voice), modifier = Modifier.weight(1f))
+        Box {
+            TextButton(onClick = { open = true }) {
+                Text(voice?.label.orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Icon(painterResource(R.drawable.ic_arrow_drop_down), contentDescription = null)
+            }
+            DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                for (each in voices) {
+                    DropdownMenuItem(
+                        text = {
+                            Column {
+                                Text(each.label)
+                                if (each.credit.isNotEmpty()) {
+                                    Text(
+                                        each.credit,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        },
+                        leadingIcon = {
+                            if (each.id == voice?.id) {
+                                Icon(painterResource(R.drawable.ic_check), contentDescription = null)
+                            } else {
+                                Spacer(Modifier.size(24.dp))
+                            }
+                        },
+                        onClick = {
+                            open = false
+                            onVoice(each.id)
+                        }
+                    )
+                }
             }
         }
     }
