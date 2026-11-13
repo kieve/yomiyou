@@ -4,6 +4,7 @@ import android.content.Intent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -30,7 +31,7 @@ fun SettingsScreen() {
     val context = LocalContext.current
     val services = context.services
     val folder by services.library.folder.collectAsState(initial = null)
-    val dictionary by services.dictionary.info.collectAsState()
+    val dictionaries by services.dictionary.infos.collectAsState()
     val chooseFolder = rememberLibraryPicker()
 
     Scaffold(
@@ -52,29 +53,25 @@ fun SettingsScreen() {
             item {
                 SectionHeader(stringResource(R.string.settings_dictionary))
             }
-            item {
-                val stored = dictionary
+            if (dictionaries.isEmpty()) {
+                item {
+                    ListItem(headlineContent = { Text(stringResource(R.string.settings_dictionaryNone)) })
+                }
+            }
+            items(dictionaries, key = { it.id }) { stored ->
                 ListItem(
                     headlineContent = {
-                        Text(
-                            if (stored == null) {
-                                stringResource(R.string.settings_dictionaryNone)
-                            } else {
-                                stringResource(R.string.settings_dictionaryEntries, stored.title, stored.entryCount)
-                            }
-                        )
+                        Text(stringResource(R.string.settings_dictionaryEntries, stored.title, stored.entryCount))
                     },
-                    supportingContent = stored?.attribution?.takeIf { it.isNotBlank() }?.let { { Text(it) } },
-                    trailingContent = stored?.let {
-                        {
-                            Button(
-                                onClick = services.dictionary::clear,
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.error,
-                                    contentColor = MaterialTheme.colorScheme.onError,
-                                ),
-                            ) { Text(stringResource(R.string.settings_dictionaryClear)) }
-                        }
+                    supportingContent = stored.attribution.takeIf { it.isNotBlank() }?.let { { Text(it) } },
+                    trailingContent = {
+                        Button(
+                            onClick = { services.dictionary.clear(stored) },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error,
+                                contentColor = MaterialTheme.colorScheme.onError,
+                            ),
+                        ) { Text(stringResource(R.string.settings_dictionaryClear)) }
                     },
                 )
             }

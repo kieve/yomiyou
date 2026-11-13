@@ -14,10 +14,14 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonObject
 
 /**
- * The popup dictionary: one Yomitan dictionary at a time, imported from Browse into a database of its own. The reader
- * page's lookup asks it for entries.
+ * The popup dictionaries (JMdict, JMnedict...): imported from Browse into a database of their own, a new revision of
+ * one replacing it. The reader page's lookup asks them for entries.
  */
 class Dictionary(
     private val context: Context,
@@ -28,23 +32,25 @@ class Dictionary(
     private val database by lazy { DictionaryDatabase.create(context) }
     private val dao get() = database.dao()
 
-    private val _info = MutableStateFlow<StoredInfo?>(null)
-    /** The dictionary there is, or null. */
-    val info: StateFlow<StoredInfo?> = _info
+    private val _infos = MutableStateFlow<List<StoredInfo>>(emptyList())
+    /** The dictionaries there are, in the order lookups rank them. */
+    val infos: StateFlow<List<StoredInfo>> = _infos
 
     private val _busy = MutableStateFlow(false)
     val busy: StateFlow<Boolean> = _busy
 
     init {
         scope.launch {
-            // An import cut short left entries and no info: they go.
-            val stored = dao.info()
-            if (stored == null) dao.clearEntries()
-            _info.value = stored
+            dao.deleteOrphans()
+            refresh()
         }
     }
 
-    /** Replaces the dictionary with the one in [uri]; an entry in the activity log, and a toast at the end. */
+    private suspend fun refresh() {
+        _infos.value = inOrder(dao.infos())
+    }
+
+    /** Adds the dictionary in [uri], replacing an earlier revision of it; an activity entry, and a toast at the end. */
     fun import(uri: Uri) {
         if (_busy.value) return
         _busy.value = true
@@ -56,55 +62,78 @@ class Dictionary(
                 log.retitle(id, title)
                 log.finish(id, listOf("Added dictionary"), emptyList())
             } else {
+                runCatching { dao.deleteOrphans() }
                 log.finish(id, emptyList(), listOf(result.exceptionOrNull()?.message ?: "Can't read it."))
             }
+            refresh()
             _busy.value = false
             val message = if (title != null) "Added dictionary: $title" else result.exceptionOrNull()?.message
             withContext(Dispatchers.Main) { Toast.makeText(context, message, Toast.LENGTH_SHORT).show() }
         }
     }
 
-    private suspend fun read(uri: Uri, id: Long): String = ZipIndex.open(library.open(uri)).use { zip ->
+    private suspend fun read(uri: Uri, logId: Long): String = ZipIndex.open(library.open(uri)).use { zip ->
         val info = Yomitan.info(zip)
-        log.retitle(id, info.title)
-        log.progress(id, "Clearing the old dictionary")
-        clearStored()
+        log.retitle(logId, info.title)
+        val known = dao.infos()
+        val same = known.firstOrNull { nameOf(it.title) == nameOf(info.title) }
+        if (same != null) {
+            log.progress(logId, "Removing ${same.title}")
+            remove(same)
+        }
+        val id = same?.id ?: ((known.maxOfOrNull { it.id } ?: 0) + 1)
         val banks = Yomitan.termBanks(zip)
         var count = 0
+        var names = 0
         banks.forEachIndexed { index, bank ->
-            log.progress(id, "Reading", index * 100 / banks.size)
-            val entries = Yomitan.bank(zip, bank)
+            log.progress(logId, "Reading", index * 100 / banks.size)
+            val entries = Yomitan.bank(zip, bank).map { it.copy(dictionary = id) }
             database.withTransaction { dao.insert(entries) }
             count += entries.size
+            names += entries.count(Yomitan::isName)
         }
-        val stored = StoredInfo(title = info.title, revision = info.revision, attribution = info.attribution, entryCount = count)
-        dao.setInfo(stored)
-        _info.value = stored
+        dao.setInfo(StoredInfo(id, info.title, info.revision, info.attribution, count, names * 2 > count))
         info.title
     }
 
-    fun clear() {
-        scope.launch { clearStored() }
-    }
-
-    private suspend fun clearStored() {
-        _info.value = null
-        database.withTransaction {
-            dao.clearInfo()
-            dao.clearEntries()
+    fun clear(info: StoredInfo) {
+        scope.launch {
+            _infos.value = _infos.value - info
+            remove(info)
+            refresh()
         }
     }
 
-    /** Entries whose term or reading is any of [texts], as the page's JSON; none while there's no dictionary. */
-    suspend fun findJson(texts: List<String>): String {
-        if (_info.value == null) return "[]"
-        // SQLite takes up to 999 variables in a query, and each text is two.
-        val found = texts.distinct().chunked(CHUNK).flatMap { dao.find(it) }
-            .distinctBy { listOf(it.term, it.reading, it.sequence, it.meanings) }
-        return Json.encodeToString(found)
+    private suspend fun remove(info: StoredInfo) {
+        database.withTransaction {
+            dao.deleteInfo(info.id)
+            dao.deleteEntries(info.id)
+        }
     }
 
-    private companion object {
-        const val CHUNK = 400
+    /** Entries whose term or reading is any of [texts], each with its dictionary's rank, as the page's JSON. */
+    suspend fun findJson(texts: List<String>): String {
+        val ranks = _infos.value.withIndex().associate { (rank, info) -> info.id to rank }
+        if (ranks.isEmpty()) return "[]"
+        // SQLite takes up to 999 variables in a query, and each text is two.
+        val found = texts.distinct().chunked(CHUNK).flatMap { dao.find(it) }
+            .filter { it.dictionary in ranks }
+            .distinctBy { listOf(it.dictionary, it.term, it.reading, it.sequence, it.meanings) }
+        return JsonArray(
+            found.map { entry ->
+                val fields = Json.encodeToJsonElement(DictionaryEntry.serializer(), entry).jsonObject
+                JsonObject(fields + ("rank" to JsonPrimitive(ranks.getValue(entry.dictionary))))
+            }
+        ).toString()
+    }
+
+    companion object {
+        private const val CHUNK = 400
+
+        /** The dictionary a title names, whatever its revision: "JMdict (Legacy) [2026-11-11]" → "JMdict (Legacy)". */
+        fun nameOf(title: String): String = title.replace(Regex("""\s*\[[^\]]*]\s*$"""), "")
+
+        /** Words before names, then as imported. */
+        fun inOrder(infos: List<StoredInfo>): List<StoredInfo> = infos.sortedWith(compareBy({ it.names }, { it.id }))
     }
 }

@@ -1,5 +1,5 @@
 {
-  "about": "Yomitan v3 term bank rows and the entry each gives (null: left out). Shared by yomiage's TypeScript tests and yomiyou's Kotlin tests: a copy lives in yomiyou, changed here first.",
+  "about": "Yomitan v3 term bank rows and the entry each gives (null: left out); isName: whether that entry is a name (false when absent). Shared by yomiage's TypeScript tests and yomiyou's Kotlin tests: a copy lives in yomiyou, changed here first.",
   "cases": [
     {
       "name": "plain meanings, a godan verb",
@@ -38,6 +38,12 @@
       "name": "no meanings at all",
       "row": ["語", "ご", "n", "", 0, [], 0, ""],
       "entry": null
+    },
+    {
+      "name": "a name (JMnedict): no reading, its readings where meanings go; it is a name",
+      "row": ["小柳", "", "surname", "", 0, ["おやなぎ", "こやなぎ"], 287298, ""],
+      "entry": { "term": "小柳", "reading": "小柳", "rules": [], "score": 0, "tags": ["surname"], "meanings": ["おやなぎ", "こやなぎ"], "sequence": 287298 },
+      "isName": true
     }
   ]
 }

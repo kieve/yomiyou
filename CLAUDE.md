@@ -50,9 +50,9 @@ minSdk 26, Java 17, Kotlin DSL and a version catalog. Material and navigation st
   page is `assets/reader/`, served with the book's files by a `WebViewAssetLoader`: the whole book as one scroll, five
   chapters loaded at a time around the reader; it answers the lookup's dictionary queries), `ReadingStyle` (app-wide, as CSS variables on the page).
 - `dictionary`: the popup dictionary. `Yomitan` (a Yomitan zip read into entries, as yomiage's `dictionary.ts` reads it; both
-  pass `src/test/resources/dictionary/entries.json`, a copy of yomiage's), `DictionaryDatabase` (Room, `dictionary.db`:
-  entries indexed by term and reading, plus the dictionary's info, written last by an import), `Dictionary` (one at a
-  time: imported from Browse, cleared in Settings; finds entries for the page). The lookup itself (hold, handles,
+  pass `src/test/resources/dictionary/entries.json`, a copy of yomiage's), `DictionaryDatabase` (Room, `dictionary.db`, several dictionaries:
+  entries indexed by term, reading and dictionary, plus each one's info, written last by its import), `Dictionary` (JMdict, JMnedict and the like, words ranked before names; a new revision of one replaces it:
+  imported from Browse, each cleared in Settings; finds entries for the page). The lookup itself (hold, handles,
   panel) is yomiage's: `assets/reader/lookup.js` and `lookup.css` are copies of its `build/generated/reader/app/`,
   refreshed by hand when it changes, with the yomiage commit named in the commit message.
 - `narration`: `VoiceFile` (a voice zip: its manifest and timings; the audio read where it lies), `VoiceTimeline`

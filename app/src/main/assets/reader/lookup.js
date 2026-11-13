@@ -1,5 +1,39 @@
 "use strict";
 (() => {
+  // src/main/ts/dictionary.ts
+  var NAME_TAGS = /* @__PURE__ */ new Set([
+    "char",
+    "company",
+    "creat",
+    "dei",
+    "doc",
+    "ev",
+    "fem",
+    "fict",
+    "given",
+    "group",
+    "leg",
+    "male",
+    "masc",
+    "myth",
+    "obj",
+    "organization",
+    "oth",
+    "person",
+    "place",
+    "product",
+    "relig",
+    "serv",
+    "ship",
+    "station",
+    "surname",
+    "unclass",
+    "work"
+  ]);
+  function isName(entry) {
+    return entry.tags.length > 0 && entry.tags.every((tag) => NAME_TAGS.has(tag));
+  }
+
   // src/main/ts/entry-view.ts
   var INFLECTIONS = {
     "te-form": "\u3066 form",
@@ -77,7 +111,35 @@
     vz: "\u305A\u308B verb",
     vt: "transitive",
     vi: "intransitive",
-    cop: "copula"
+    cop: "copula",
+    // Names (JMnedict).
+    surname: "surname",
+    given: "given name",
+    fem: "female given name",
+    masc: "male given name",
+    male: "male given name",
+    person: "full name",
+    place: "place",
+    station: "station",
+    company: "company",
+    organization: "organization",
+    product: "product",
+    work: "work",
+    char: "character",
+    fict: "fiction",
+    group: "group",
+    serv: "service",
+    creat: "creature",
+    dei: "deity",
+    myth: "mythology",
+    leg: "legend",
+    ev: "event",
+    doc: "document",
+    obj: "object",
+    ship: "ship",
+    relig: "religion",
+    oth: "name",
+    unclass: "name"
   };
   function kindOf(tag) {
     return KINDS[tag] ?? (tag.startsWith("v5") ? "godan verb" : void 0);
@@ -98,6 +160,7 @@
       groups.set(key, group2);
     }
     return mergeReadings([...groups.values()].map((group2) => {
+      if (group2.every((one) => isName(one.entry))) return nameOf(group2);
       const ordered = group2.map((one) => one.entry).sort((a, b) => b.score - a.score);
       const first = ordered[0];
       const each = ordered.map(kindsOf);
@@ -108,6 +171,7 @@
         kinds: shared,
         inflection: inflectionOf(group2[0].form.reasons),
         written: group2.some((one) => one.entry.term === one.form.text),
+        rank: group2[0].entry.rank ?? 0,
         senses: ordered.map((entry, i) => ({
           kinds: each[i].filter((kind) => !shared.includes(kind)),
           meanings: entry.meanings
@@ -117,7 +181,8 @@
     }));
   }
   function likely(words) {
-    const written = words.filter((w) => w.written);
+    const best = Math.min(...words.filter((w) => w.written).map((w) => w.rank));
+    const written = words.filter((w) => w.written && w.rank === best);
     const shown = written.length > 0 ? written : words.slice(0, 1);
     return { shown, more: words.filter((w) => !shown.includes(w)) };
   }
@@ -133,6 +198,22 @@
       }
     }
     return merged.map(({ key: _key, ...word }) => word);
+  }
+  function nameOf(group2) {
+    const rows = group2.map((one2) => one2.entry);
+    const readingsOf = (entry) => entry.meanings.map(hiragana);
+    const all = [...new Set(rows.flatMap(readingsOf))];
+    const one = rows.length === 1;
+    return {
+      term: rows[0].term,
+      reading: KANA.test(rows[0].term) ? null : all.join("\u30FB"),
+      kinds: one ? kindsOf(rows[0]) : [],
+      inflection: null,
+      written: true,
+      rank: rows[0].rank ?? 0,
+      senses: one ? [] : rows.map((row) => ({ kinds: kindsOf(row), meanings: [readingsOf(row).join("\u30FB")] })),
+      sequence: rows[0].sequence
+    };
   }
 
   // src/main/ts/deinflect.ts
@@ -380,7 +461,7 @@
     }
     const written = (f) => f.entry.term === f.form.text ? 0 : 1;
     return [...found.values()].sort(
-      (a, b) => a.form.reasons.length - b.form.reasons.length || written(a) - written(b) || b.entry.score - a.entry.score
+      (a, b) => a.form.reasons.length - b.form.reasons.length || written(a) - written(b) || (a.entry.rank ?? 0) - (b.entry.rank ?? 0) || b.entry.score - a.entry.score
     );
   }
 

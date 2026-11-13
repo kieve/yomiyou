@@ -26,7 +26,7 @@
 .lookup-entries { overflow: auto; padding: 0 16px 12px; }
 .lookup-word + .lookup-word { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
 .lookup-head { display: flex; gap: 10px; align-items: baseline; }
-.lookup-term { font-size: 20px; }
+.lookup-term { flex: none; font-size: 20px; }
 .lookup-reading { font-size: 15px; color: var(--muted); }
 .lookup-kind { font-size: 12px; color: var(--muted); }
 .lookup-senses { margin: 4px 0 0; padding-left: 1.4em; }

@@ -17,6 +17,15 @@ import java.io.IOException
 
 class YomitanTest {
     @Test
+    fun `a title names its dictionary whatever the revision, and names come after words`() {
+        assertEquals("JMdict (Legacy)", Dictionary.nameOf("JMdict (Legacy) [2026-11-11]"))
+        assertEquals("JMnedict", Dictionary.nameOf("JMnedict"))
+        val names = StoredInfo(1, "JMnedict", "", "", 1, names = true)
+        val words = StoredInfo(2, "JMdict", "", "", 1, names = false)
+        assertEquals(listOf(words, names), Dictionary.inOrder(listOf(names, words)))
+    }
+
+    @Test
     fun `term bank rows give the entries yomiage's shared cases expect`() {
         val text = javaClass.getResource("/dictionary/entries.json")!!.readText()
         val cases = Json.parseToJsonElement(text).jsonObject.getValue("cases").jsonArray
@@ -25,7 +34,10 @@ class YomitanTest {
             val name = case.getValue("name").jsonPrimitive.content
             val expected = case.getValue("entry").takeUnless { it is JsonNull }
                 ?.let { Json.decodeFromJsonElement(DictionaryEntry.serializer(), it) }
-            assertEquals(expected, Yomitan.entryOf(case.getValue("row").jsonArray), name)
+            val read = Yomitan.entryOf(case.getValue("row").jsonArray)
+            assertEquals(expected, read, name)
+            val isName = case["isName"]?.jsonPrimitive?.content == "true"
+            if (read != null) assertEquals(isName, Yomitan.isName(read), name)
         }
     }
 

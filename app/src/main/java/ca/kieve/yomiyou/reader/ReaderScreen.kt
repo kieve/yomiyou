@@ -161,7 +161,7 @@ private fun Reader(entry: LibraryBook, book: EnrichedEpub, onBack: () -> Unit) {
     var ready by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var lookingUp by remember { mutableStateOf(false) }
-    val dictionary by services.dictionary.info.collectAsState()
+    val dictionaries by services.dictionary.infos.collectAsState()
     val drawer = rememberDrawerState(DrawerValue.Closed)
 
     val page = remember(book) {
@@ -246,8 +246,8 @@ private fun Reader(entry: LibraryBook, book: EnrichedEpub, onBack: () -> Unit) {
         }
     }
 
-    LaunchedEffect(ready, dictionary != null) {
-        if (ready) page.setDictionary(dictionary != null)
+    LaunchedEffect(ready, dictionaries.isNotEmpty()) {
+        if (ready) page.setDictionary(dictionaries.isNotEmpty())
     }
 
     SystemBars(visible = controls)

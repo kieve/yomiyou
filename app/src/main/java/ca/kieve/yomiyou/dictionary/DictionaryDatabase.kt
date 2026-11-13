@@ -15,11 +15,12 @@ import androidx.room.TypeConverter
 import androidx.room.TypeConverters
 import androidx.room.Upsert
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 import kotlinx.serialization.json.Json
 
-/** A word in one sense, as the popup shows it; the fields are those of yomiage's `DictionaryEntry`. */
+/** A word in one sense, or a name of one kind, as the popup shows it; the fields are those of yomiage's `DictionaryEntry`. */
 @Serializable
-@Entity(tableName = "entries", indices = [Index("term"), Index("reading")])
+@Entity(tableName = "entries", indices = [Index("term"), Index("reading"), Index("dictionary")])
 data class DictionaryEntry(
     val term: String,
     val reading: String,
@@ -31,17 +32,21 @@ data class DictionaryEntry(
     val meanings: List<String>,
     /** Senses of one word share it. */
     val sequence: Int,
-    @PrimaryKey(autoGenerate = true) @kotlinx.serialization.Transient val id: Long = 0,
+    /** The [StoredInfo] it's from. */
+    @Transient val dictionary: Long = 0,
+    @PrimaryKey(autoGenerate = true) @Transient val id: Long = 0,
 )
 
-/** The dictionary in the database; written last by an import, so an import cut short leaves none. */
+/** A dictionary in the database; written last by its import, so an import cut short leaves none of it. */
 @Entity(tableName = "info")
 data class StoredInfo(
-    @PrimaryKey val key: Int = 0,
+    @PrimaryKey val id: Long,
     val title: String,
     val revision: String,
     val attribution: String,
     @ColumnInfo(name = "entry_count") val entryCount: Int,
+    /** Mostly names (JMnedict): its entries come after the other dictionaries'. */
+    val names: Boolean,
 )
 
 @Dao
@@ -52,17 +57,21 @@ interface DictionaryDao {
     @Query("SELECT * FROM entries WHERE term IN (:texts) OR reading IN (:texts)")
     suspend fun find(texts: List<String>): List<DictionaryEntry>
 
-    @Query("SELECT * FROM info WHERE `key` = 0")
-    suspend fun info(): StoredInfo?
+    @Query("SELECT * FROM info")
+    suspend fun infos(): List<StoredInfo>
 
     @Upsert
     suspend fun setInfo(info: StoredInfo)
 
-    @Query("DELETE FROM entries")
-    suspend fun clearEntries()
+    @Query("DELETE FROM info WHERE id = :id")
+    suspend fun deleteInfo(id: Long)
 
-    @Query("DELETE FROM info")
-    suspend fun clearInfo()
+    @Query("DELETE FROM entries WHERE dictionary = :id")
+    suspend fun deleteEntries(id: Long)
+
+    /** Entries of imports cut short. */
+    @Query("DELETE FROM entries WHERE dictionary NOT IN (SELECT id FROM info)")
+    suspend fun deleteOrphans()
 }
 
 class Lists {
@@ -73,13 +82,16 @@ class Lists {
     fun toList(text: String): List<String> = Json.decodeFromString(text)
 }
 
-@Database(version = 1, entities = [DictionaryEntry::class, StoredInfo::class])
+/** Version 1 held one dictionary; it isn't carried over (import again). */
+@Database(version = 2, entities = [DictionaryEntry::class, StoredInfo::class])
 @TypeConverters(Lists::class)
 abstract class DictionaryDatabase : RoomDatabase() {
     abstract fun dao(): DictionaryDao
 
     companion object {
         fun create(context: Context): DictionaryDatabase =
-            Room.databaseBuilder(context, DictionaryDatabase::class.java, "dictionary.db").build()
+            Room.databaseBuilder(context, DictionaryDatabase::class.java, "dictionary.db")
+                .fallbackToDestructiveMigration(dropAllTables = true)
+                .build()
     }
 }

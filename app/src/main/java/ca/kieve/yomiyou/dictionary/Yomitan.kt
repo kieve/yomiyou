@@ -66,6 +66,15 @@ object Yomitan {
         )
     }
 
+    /** Tags that make an entry a name (JMnedict's): a name has readings where a word has meanings, and no reading. */
+    private val NAME_TAGS = setOf(
+        "char", "company", "creat", "dei", "doc", "ev", "fem", "fict", "given", "group", "leg", "male", "masc", "myth", "obj",
+        "organization", "oth", "person", "place", "product", "relig", "serv", "ship", "station", "surname", "unclass", "work",
+    )
+
+    /** Whether an entry is a name rather than a word: 小柳 (surname), its readings こやなぎ, おやなぎ as its "meanings". */
+    fun isName(entry: DictionaryEntry): Boolean = entry.tags.isNotEmpty() && entry.tags.all { it in NAME_TAGS }
+
     /** Kinds of word found in part-of-speech tags too: JMdict marks a する noun only there (勉強: "n vs vt"). */
     private fun kindOfTag(tag: String): String? = when {
         tag.startsWith("v5") -> "v5"

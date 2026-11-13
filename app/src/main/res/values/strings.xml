@@ -30,7 +30,7 @@
     <string name="browse_epubFilesSummary">An enriched EPUB and its voice files</string>
     <string name="browse_busy">Importing: see Activity</string>
     <string name="browse_dictionary">Dictionary</string>
-    <string name="browse_dictionarySummary">A Yomitan dictionary, such as JMdict. Replaces the one there is</string>
+    <string name="browse_dictionarySummary">A Yomitan dictionary, such as JMdict or JMnedict</string>
 
     <!-- Activity -->
     <string name="activity_empty">Nothing yet. Imports show here.</string>
@@ -63,7 +63,7 @@
     <!-- Settings -->
     <string name="settings_library">Library</string>
     <string name="settings_libraryFolder">Library folder</string>
-    <string name="settings_dictionary">Dictionary</string>
+    <string name="settings_dictionary">Dictionaries</string>
     <string name="settings_dictionaryNone">None. Add one in Browse</string>
     <string name="settings_dictionaryEntries">%1$s, %2$,d entries</string>
     <string name="settings_dictionaryClear">Clear</string>
