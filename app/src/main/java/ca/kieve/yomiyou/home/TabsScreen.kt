@@ -65,7 +65,7 @@ fun TabsScreen(onOpenBook: (String) -> Unit) {
             tabStates.SaveableStateProvider(current.name) {
                 when (current) {
                     Tab.Shelf -> ShelfScreen(onOpenBook)
-                    Tab.Browse -> BrowseScreen()
+                    Tab.Browse -> BrowseScreen(onStarted = { current = Tab.Activity })
                     Tab.Activity -> ActivityScreen()
                     Tab.Settings -> SettingsScreen()
                 }

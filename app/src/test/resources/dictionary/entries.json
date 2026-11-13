@@ -1,0 +1,43 @@
+{
+  "about": "Yomitan v3 term bank rows and the entry each gives (null: left out). Shared by yomiage's TypeScript tests and yomiyou's Kotlin tests: a copy lives in yomiyou, changed here first.",
+  "cases": [
+    {
+      "name": "plain meanings, a godan verb",
+      "row": ["読む", "よむ", "v5m vt", "v5", 200, ["to read"], 1, "⭐"],
+      "entry": { "term": "読む", "reading": "よむ", "rules": ["v5"], "score": 200, "tags": ["v5m", "vt"], "meanings": ["to read"], "sequence": 1 }
+    },
+    {
+      "name": "a table of forms is left out",
+      "row": ["読む", "よむ", "forms", "v5", 199, [{ "type": "structured-content", "content": "読む ★" }], 1, ""],
+      "entry": null
+    },
+    {
+      "name": "no reading: the term is its reading; a kind from both rules and tags",
+      "row": ["する", "", "vs-i", "vs", 50, ["to do"], 3, ""],
+      "entry": { "term": "する", "reading": "する", "rules": ["vs"], "score": 50, "tags": ["vs-i"], "meanings": ["to do"], "sequence": 3 }
+    },
+    {
+      "name": "a する noun is marked only in its tags; numbers among the tags are dropped",
+      "row": ["勉強", "べんきょう", "1 n vs vt", "", 100, [{ "type": "structured-content", "content": [
+        { "tag": "ul", "data": { "content": "glossary" }, "content": [{ "tag": "li", "content": "study" }, { "tag": "li", "content": ["dili", { "tag": "span", "content": "gence" }] }] },
+        { "tag": "ul", "data": { "content": "notes" }, "content": { "tag": "li", "content": "a note, not a meaning" } }
+      ] }], 2, ""],
+      "entry": { "term": "勉強", "reading": "べんきょう", "rules": ["vs"], "score": 100, "tags": ["n", "vs", "vt"], "meanings": ["study", "diligence"], "sequence": 2 }
+    },
+    {
+      "name": "a pointer to another word has no meanings: left out",
+      "row": ["故事付ける", "", "", "v1", 0, [{ "type": "structured-content", "content": "⟶ こじつける" }], 4, ""],
+      "entry": null
+    },
+    {
+      "name": "a text definition, and kinds of each family",
+      "row": ["寒い", "さむい", "adj-i v1-s vk", "", -5, [{ "type": "text", "text": "cold" }], 5, ""],
+      "entry": { "term": "寒い", "reading": "さむい", "rules": ["adj-i", "v1", "vk"], "score": -5, "tags": ["adj-i", "v1-s", "vk"], "meanings": ["cold"], "sequence": 5 }
+    },
+    {
+      "name": "no meanings at all",
+      "row": ["語", "ご", "n", "", 0, [], 0, ""],
+      "entry": null
+    }
+  ]
+}

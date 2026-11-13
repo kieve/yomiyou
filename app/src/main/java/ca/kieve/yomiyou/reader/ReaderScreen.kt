@@ -160,10 +160,12 @@ private fun Reader(entry: LibraryBook, book: EnrichedEpub, onBack: () -> Unit) {
     var options by rememberSaveable { mutableStateOf(false) }
     var ready by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var lookingUp by remember { mutableStateOf(false) }
+    val dictionary by services.dictionary.info.collectAsState()
     val drawer = rememberDrawerState(DrawerValue.Closed)
 
     val page = remember(book) {
-        ReaderPage(context, book, scope, object : ReaderPage.Listener {
+        ReaderPage(context, book, scope, services.dictionary, object : ReaderPage.Listener {
             override fun onReady() {
                 ready = true
             }
@@ -189,6 +191,14 @@ private fun Reader(entry: LibraryBook, book: EnrichedEpub, onBack: () -> Unit) {
             override fun onDoubleTap() {
                 controls = !controls
                 if (!controls) options = false
+            }
+
+            override fun onHold() {
+                narration.pause()
+            }
+
+            override fun onLookup(open: Boolean) {
+                lookingUp = open
             }
 
             override fun onError(message: String) {
@@ -236,10 +246,18 @@ private fun Reader(entry: LibraryBook, book: EnrichedEpub, onBack: () -> Unit) {
         }
     }
 
+    LaunchedEffect(ready, dictionary != null) {
+        if (ready) page.setDictionary(dictionary != null)
+    }
+
     SystemBars(visible = controls)
     BackHandler(enabled = controls) {
         controls = false
         options = false
+    }
+    // Declared after, so it comes first: Back closes the lookup before anything else.
+    BackHandler(enabled = lookingUp) {
+        page.closeLookup()
     }
 
     ModalNavigationDrawer(

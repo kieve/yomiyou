@@ -183,6 +183,10 @@ class Narration(
         _spoken.value = Spoken(timing.chapter, timing.phrase)
     }
 
+    fun pause() {
+        controller?.pause()
+    }
+
     fun toggle() {
         val player = controller ?: return
         if (player.isPlaying) player.pause() else if (player.mediaItemCount > 0) player.play()

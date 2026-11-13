@@ -23,29 +23,30 @@ import ca.kieve.yomiyou.home.services
 
 /** A way to add books, listed in Browse. */
 interface BrowseSource {
+    /** [onStarted]: work began that the Activity tab follows. */
     @Composable
-    fun Item()
+    fun Item(onStarted: () -> Unit)
 }
 
-private val sources: List<BrowseSource> = listOf(EpubFiles)
+private val sources: List<BrowseSource> = listOf(EpubFiles, DictionaryFile)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BrowseScreen() {
+fun BrowseScreen(onStarted: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(title = { Text(stringResource(R.string.home_browse)) })
         }
     ) { innerPadding ->
         LazyColumn(contentPadding = innerPadding) {
-            items(sources) { it.Item() }
+            items(sources) { it.Item(onStarted) }
         }
     }
 }
 
 private object EpubFiles : BrowseSource {
     @Composable
-    override fun Item() {
+    override fun Item(onStarted: () -> Unit) {
         val importer = LocalContext.current.services.importer
         val busy by importer.busy.collectAsState()
         val pick = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) {
@@ -57,6 +58,27 @@ private object EpubFiles : BrowseSource {
             headlineContent = { Text(stringResource(R.string.browse_epubFiles)) },
             supportingContent = { Text(stringResource(summary)) },
             modifier = Modifier.clickable(enabled = !busy) { pick.launch(arrayOf("*/*")) }
+        )
+    }
+}
+
+private object DictionaryFile : BrowseSource {
+    @Composable
+    override fun Item(onStarted: () -> Unit) {
+        val dictionary = LocalContext.current.services.dictionary
+        val busy by dictionary.busy.collectAsState()
+        val pick = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri != null) {
+                dictionary.import(uri)
+                onStarted()
+            }
+        }
+        val summary = if (busy) R.string.browse_busy else R.string.browse_dictionarySummary
+        ListItem(
+            leadingContent = { Icon(painterResource(R.drawable.ic_dictionary), contentDescription = null) },
+            headlineContent = { Text(stringResource(R.string.browse_dictionary)) },
+            supportingContent = { Text(stringResource(summary)) },
+            modifier = Modifier.clickable(enabled = !busy) { pick.launch(arrayOf("application/zip", "*/*")) }
         )
     }
 }

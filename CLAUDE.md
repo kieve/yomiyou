@@ -34,8 +34,8 @@ minSdk 26, Java 17, Kotlin DSL and a version catalog. Material and navigation st
   `NavigationSuiteScaffold`: a bottom bar on a narrow screen, a rail on a wide one), `Services` (the new screens'
   app-wide objects).
 - `shelf`: `ShelfScreen` (covers in a grid, the latest opened first; a long press deletes a book), `ShelfBook` (a book on
-  the shelf, whatever its kind; `YomiageShelfBook` for the library's). `browse`: `BrowseScreen` (its `BrowseSource`s; one
-  for now, EPUB files from the system picker), `Importer` (copies picked files into the library, reporting to the
+  the shelf, whatever its kind; `YomiageShelfBook` for the library's). `browse`: `BrowseScreen` (its `BrowseSource`s: EPUB files
+  from the system picker, and a Yomitan dictionary), `Importer` (copies picked files into the library, reporting to the
   activity log and a toast). `activity`: `ActivityLog` (work and its results, newest first, kept in the app's files; the
   latest 100) and `ActivityScreen` (the tab). `settings`: Settings
   → Debug starts `YomiActivity`.
@@ -46,9 +46,15 @@ minSdk 26, Java 17, Kotlin DSL and a version catalog. Material and navigation st
   picked files make, the names in a book folder), `VoiceManifest` (`voice.json`).
 - `reader`: `ReaderBook` (what the reader shows, whatever the kind of book), `ReaderScreen` (the book full screen, system
   bars hidden; a single tap jumps the narration to a phrase, a double tap brings up the controls (play, speed, the
-  chapter drawer, the reader options), a hold stays free for the dictionary), `ReaderPage` (the WebView; its
+  chapter drawer, the reader options), a hold looks a word up and pauses the narration, Back closes the lookup), `ReaderPage` (the WebView; its
   page is `assets/reader/`, served with the book's files by a `WebViewAssetLoader`: the whole book as one scroll, five
-  chapters loaded at a time around the reader), `ReadingStyle` (app-wide, as CSS variables on the page).
+  chapters loaded at a time around the reader; it answers the lookup's dictionary queries), `ReadingStyle` (app-wide, as CSS variables on the page).
+- `dictionary`: the popup dictionary. `Yomitan` (a Yomitan zip read into entries, as yomiage's `dictionary.ts` reads it; both
+  pass `src/test/resources/dictionary/entries.json`, a copy of yomiage's), `DictionaryDatabase` (Room, `dictionary.db`:
+  entries indexed by term and reading, plus the dictionary's info, written last by an import), `Dictionary` (one at a
+  time: imported from Browse, cleared in Settings; finds entries for the page). The lookup itself (hold, handles,
+  panel) is yomiage's: `assets/reader/lookup.js` and `lookup.css` are copies of its `build/generated/reader/app/`,
+  refreshed by hand when it changes, with the yomiage commit named in the commit message.
 - `narration`: `VoiceFile` (a voice zip: its manifest and timings; the audio read where it lies), `VoiceTimeline`
   (the phrase spoken at a moment, where a phrase is spoken), `PlaybackService` (Media3's `MediaSessionService`: playing
   with the screen off, the media notification, the lock screen and the headset), `VoiceDataSource` (segments read out of

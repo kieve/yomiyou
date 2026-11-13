@@ -23,6 +23,36 @@
     let spoken = null;
     let lit = [];
 
+    /** Looking words up (lookup.js, from yomiage): the app answers the dictionary's queries. */
+    let lookup = null;
+    let hasDictionary = false;
+    const queries = new Map();
+    let lastQuery = 0;
+    const dictionary = {
+        find: (texts) => new Promise((resolve) => {
+            const id = ++lastQuery;
+            queries.set(id, resolve);
+            post({ type: "find", id, texts });
+        }),
+    };
+    if (window.yomiyouHost) {
+        window.yomiyouHost.onmessage = (event) => {
+            const reply = JSON.parse(event.data);
+            queries.get(reply.id)?.(reply.entries);
+            queries.delete(reply.id);
+        };
+    }
+
+    const startLookup = () => {
+        lookup?.dispose();
+        lookup = new yomiageLookup.WordLookup(text, {
+            dictionary: () => (hasDictionary ? dictionary : null),
+            vertical: vertical(),
+            onHold: () => post({ type: "hold" }),
+            onOpen: (open) => post({ type: "lookup", open }),
+        });
+    };
+
     const vertical = () => book?.vertical === true;
 
     const view = () => (vertical() ? text.getBoundingClientRect() : { left: 0, right: innerWidth, top: 0, bottom: innerHeight });
@@ -159,6 +189,8 @@
             text.replaceChildren();
             spans = [];
             text.className = "text " + (start.vertical ? "vertical" : "horizontal");
+            if (start.dictionary !== undefined) hasDictionary = start.dictionary === true;
+            startLookup();
             setStyle(start.style);
             ask(start.chapter);
         },
@@ -232,6 +264,16 @@
             reader.open({ vertical: book.vertical, count: book.count, chapter, span: null });
         },
 
+        /** Whether holding a word looks it up. */
+        dictionary(has) {
+            hasDictionary = has;
+            if (!has) lookup?.close();
+        },
+
+        closeLookup() {
+            lookup?.close();
+        },
+
         /** Applies a new style, keeping the first phrase on screen at the start of the screen. */
         style(variables) {
             const kept = firstVisible();
@@ -251,6 +293,10 @@
     addEventListener("scroll", scrolled);
     let tap = 0;
     addEventListener("click", (event) => {
+        // The lookup's buttons and panel aren't the page: no tap there.
+        if (event.target.closest?.(".lookup-layer")) {
+            return;
+        }
         if (tap) {
             clearTimeout(tap);
             tap = 0;

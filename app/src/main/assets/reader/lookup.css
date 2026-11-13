@@ -1,0 +1,46 @@
+/* Looking a word up, in the web reader and the app's reader alike. The page defines --bg, --fg, --muted and --line. */
+.lookup-ready { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+::highlight(lookup) { background-color: #7fb2ff66; }
+.lookup-layer[hidden] { display: none; }
+.lookup-layer [hidden] { display: none; }
+/* A handle is a dot on a stem at each end of the selection, big enough for a thumb. */
+.lookup-handle { position: fixed; width: 28px; height: 28px; margin: -14px 0 0 -14px; touch-action: none;
+                 cursor: grab; z-index: 20; }
+.lookup-handle::after { content: ""; position: absolute; left: 7px; top: 7px; width: 14px; height: 14px;
+                        border-radius: 50%; background: #2a6fdb; box-shadow: 0 1px 3px rgb(0 0 0 / 40%); }
+.lookup-actions { position: fixed; display: flex; gap: 10px; z-index: 20; }
+.lookup-actions.vertical { flex-direction: column; }
+.lookup-action { width: 40px; height: 40px; padding: 9px; border: 0; border-radius: 50%; background: #2a6fdb;
+                 color: #fff; cursor: pointer; box-shadow: 0 2px 6px rgb(0 0 0 / 40%); }
+.lookup-action svg { display: block; width: 100%; height: 100%; fill: currentColor; }
+/* The panel: a grip to drag it by, then its entries, scrolling when long. Horizontal text inside, whatever the book's.
+   Above the handles and buttons: where they meet, the entries are what's read; moving the panel uncovers them. */
+.lookup-panel { position: fixed; display: flex; flex-direction: column; width: min(340px, calc(100vw - 32px));
+                max-height: calc(100vh - 32px); box-sizing: border-box; border: 1px solid var(--line);
+                border-radius: 8px; background: var(--bg); color: var(--fg); z-index: 21;
+                box-shadow: 0 6px 24px rgb(0 0 0 / 35%); writing-mode: horizontal-tb; text-align: left; }
+.lookup-panel[data-side="top"], .lookup-panel[data-side="bottom"] { width: auto; max-height: 40vh; }
+.lookup-grip { flex: none; height: 20px; cursor: grab; touch-action: none; }
+.lookup-grip::after { content: ""; display: block; width: 36px; height: 4px; margin: 8px auto 0; border-radius: 2px;
+                      background: var(--line); }
+.lookup-entries { overflow: auto; padding: 0 16px 12px; }
+.lookup-word + .lookup-word { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.lookup-head { display: flex; gap: 10px; align-items: baseline; }
+.lookup-term { font-size: 20px; }
+.lookup-reading { font-size: 15px; color: var(--muted); }
+.lookup-kind { font-size: 12px; color: var(--muted); }
+.lookup-senses { margin: 4px 0 0; padding-left: 1.4em; }
+div.lookup-senses { padding-left: 0; }
+.lookup-sense + .lookup-sense { margin-top: 2px; }
+.lookup-none { margin: 0; color: var(--muted); }
+.lookup-inflection { font-size: 13px; color: #2a6fdb; }
+/* A selection broken into parts: each part as written, its words indented under it. */
+.lookup-part + .lookup-part { margin-top: 14px; padding-top: 12px; border-top: 2px solid var(--line); }
+.lookup-part-text { margin-bottom: 6px; font-size: 22px; font-weight: 600; }
+.lookup-part > .lookup-word, .lookup-part > .lookup-none { margin-left: 12px; }
+.lookup-part > .lookup-word + .lookup-word { margin-top: 8px; padding-top: 8px; }
+.lookup-more { margin: 8px 0 0 12px; }
+.lookup-more > summary { color: var(--muted); font-size: 13px; cursor: pointer; }
+.lookup-more > .lookup-word { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+/* While a handle is dragged, the finger finds the text under it, not the lookup's own controls. */
+.lookup-layer.dragging, .lookup-layer.dragging * { pointer-events: none; }

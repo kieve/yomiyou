@@ -1,5 +1,6 @@
 /* Every book looks the way the app says: its own CSS is dropped. --text-size and the rest come from ReadingStyle. */
-:root { --bg: #000; --fg: #e6e6ea; --text-size: 20px; color-scheme: dark; }
+/* --muted and --line are for the lookup (lookup.css, from yomiage). */
+:root { --bg: #000; --fg: #e6e6ea; --muted: #9a9aa2; --line: #2e2e33; --text-size: 20px; color-scheme: dark; }
 /* reader.js keeps the place itself when chapters come and go. */
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); overflow-anchor: none;
              -webkit-tap-highlight-color: transparent; touch-action: pan-x pan-y; }

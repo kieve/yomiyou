@@ -9,6 +9,8 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import ca.kieve.yomiyou.book.Position
+import ca.kieve.yomiyou.dictionary.Dictionary
+import androidx.webkit.JavaScriptReplyProxy
 import androidx.webkit.WebViewAssetLoader
 import androidx.webkit.WebViewClientCompat
 import androidx.webkit.WebViewCompat
@@ -21,7 +23,9 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
@@ -35,6 +39,7 @@ class ReaderPage(
     context: Context,
     private val book: ReaderBook,
     private val scope: CoroutineScope,
+    private val dictionary: Dictionary,
     private val listener: Listener,
 ) {
     interface Listener {
@@ -47,11 +52,18 @@ class ReaderPage(
 
         fun onDoubleTap()
 
+        /** A hold began a lookup: the narration pauses. */
+        fun onHold()
+
+        /** The lookup opened or closed: while open, Back closes it. */
+        fun onLookup(open: Boolean)
+
         fun onError(message: String)
     }
 
     val view = WebView(context)
     private var style: ReadingStyle? = null
+    private var hasDictionary = false
 
     init {
         if (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) {
@@ -75,8 +87,8 @@ class ReaderPage(
 
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean = true
         }
-        WebViewCompat.addWebMessageListener(view, "yomiyouHost", setOf(ReaderUrls.ORIGIN)) { _, message, _, isMainFrame, _ ->
-            if (isMainFrame) message.data?.let(::received)
+        WebViewCompat.addWebMessageListener(view, "yomiyouHost", setOf(ReaderUrls.ORIGIN)) { _, message, _, isMainFrame, reply ->
+            if (isMainFrame) message.data?.let { received(it, reply) }
         }
         view.loadUrl(ReaderUrls.PAGE)
     }
@@ -90,6 +102,7 @@ class ReaderPage(
             put("chapter", chapter)
             put("span", span?.let(::JsonPrimitive) ?: JsonNull)
             put("style", variables(style))
+            put("dictionary", hasDictionary)
         }
         view.evaluateJavascript("reader.open($start)", null)
     }
@@ -109,6 +122,17 @@ class ReaderPage(
         view.evaluateJavascript("reader.style(${variables(style)})", null)
     }
 
+    /** Whether holding a word looks it up. */
+    fun setDictionary(has: Boolean) {
+        if (has == hasDictionary) return
+        hasDictionary = has
+        view.evaluateJavascript("reader.dictionary($has)", null)
+    }
+
+    fun closeLookup() {
+        view.evaluateJavascript("reader.closeLookup()", null)
+    }
+
     fun destroy() = view.destroy()
 
     private fun add(chapter: Int) {
@@ -125,10 +149,18 @@ class ReaderPage(
         }
     }
 
+    /** Answers a lookup's query: {id, entries}. */
+    private fun find(id: Int, texts: List<String>, reply: JavaScriptReplyProxy) {
+        scope.launch {
+            val entries = withContext(Dispatchers.IO) { runCatching { dictionary.findJson(texts) }.getOrDefault("[]") }
+            reply.postMessage("""{"id":$id,"entries":$entries}""")
+        }
+    }
+
     private fun variables(style: ReadingStyle): JsonObject =
         JsonObject(style.variables.mapValues { JsonPrimitive(it.value) })
 
-    private fun received(data: String) {
+    private fun received(data: String, reply: JavaScriptReplyProxy) {
         val message = runCatching { Json.parseToJsonElement(data).jsonObject }.getOrNull() ?: return
         fun int(name: String) = message[name]?.jsonPrimitive?.intOrNull
         when (message["type"]?.jsonPrimitive?.content) {
@@ -141,6 +173,9 @@ class ReaderPage(
             }
             "tap" -> listener.onTap(int("span"))
             "double" -> listener.onDoubleTap()
+            "hold" -> listener.onHold()
+            "lookup" -> listener.onLookup(message["open"]?.jsonPrimitive?.booleanOrNull == true)
+            "find" -> find(int("id") ?: return, message["texts"]?.jsonArray?.map { it.jsonPrimitive.content }.orEmpty(), reply)
             "error" -> listener.onError(message["message"]?.jsonPrimitive?.content.orEmpty())
         }
     }

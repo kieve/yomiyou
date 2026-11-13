@@ -4,6 +4,8 @@ import android.content.Intent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
@@ -28,6 +30,7 @@ fun SettingsScreen() {
     val context = LocalContext.current
     val services = context.services
     val folder by services.library.folder.collectAsState(initial = null)
+    val dictionary by services.dictionary.info.collectAsState()
     val chooseFolder = rememberLibraryPicker()
 
     Scaffold(
@@ -44,6 +47,35 @@ fun SettingsScreen() {
                     headlineContent = { Text(stringResource(R.string.settings_libraryFolder)) },
                     supportingContent = { folder?.let { Text(services.library.describe(it)) } },
                     modifier = Modifier.clickable(onClick = chooseFolder)
+                )
+            }
+            item {
+                SectionHeader(stringResource(R.string.settings_dictionary))
+            }
+            item {
+                val stored = dictionary
+                ListItem(
+                    headlineContent = {
+                        Text(
+                            if (stored == null) {
+                                stringResource(R.string.settings_dictionaryNone)
+                            } else {
+                                stringResource(R.string.settings_dictionaryEntries, stored.title, stored.entryCount)
+                            }
+                        )
+                    },
+                    supportingContent = stored?.attribution?.takeIf { it.isNotBlank() }?.let { { Text(it) } },
+                    trailingContent = stored?.let {
+                        {
+                            Button(
+                                onClick = services.dictionary::clear,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.error,
+                                    contentColor = MaterialTheme.colorScheme.onError,
+                                ),
+                            ) { Text(stringResource(R.string.settings_dictionaryClear)) }
+                        }
+                    },
                 )
             }
             item {
