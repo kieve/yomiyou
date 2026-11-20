@@ -33,7 +33,7 @@ class EnrichedEpubTest {
         assertTrue(book.vertical)
         assertEquals(listOf("蜘蛛の糸", "一", "二", "三"), book.chapters.take(4))
         assertEquals(5, book.chapters.size)
-        assertEquals(1781, book.manifest.phrases)
+        assertEquals(32, book.manifest.paragraphs)
     }
 
     @Test
@@ -46,8 +46,14 @@ class EnrichedEpubTest {
             list
         }
 
-        assertEquals((0 until 1781).toList(), phrases)
-        assertEquals(listOf(5, 482, 1432), listOf(1, 2, 3).map { spans(book.chapter(it)).first() })
+        assertEquals(phrases.sorted(), phrases, "in reading order")
+        assertEquals(phrases.distinct(), phrases, "each once")
+        assertTrue(phrases.all { it / PHRASES_PER_PARAGRAPH < 32 }, "paragraph.phrase")
+        assertEquals(
+            book.manifest.chapters.map { it.firstSpan },
+            book.chapters.indices.map { spans(book.chapter(it)).first() },
+            "each chapter starts at its first phrase",
+        )
     }
 
     @Test
@@ -93,7 +99,7 @@ class EnrichedEpubTest {
         </package>"""
 
     private val yomiage = "OEBPS/yomiage.json" to """
-        {"format":1,"bookId":"b1","title":"T","author":"A","phrases":3,"voices":[],
+        {"format":2,"bookId":"b1","title":"T","author":"A","paragraphs":3,"voices":[],
          "chapters":[{"number":1,"title":"一","href":"OEBPS/text/text.xhtml","firstSpan":0},
                      {"number":2,"title":"二","href":"OEBPS/text/text.xhtml","firstSpan":2}]}"""
 
@@ -152,7 +158,7 @@ class EnrichedEpubTest {
             "No phrase data in this EPUB. Build it with yomiage first.",
             assertThrows(BookError::class.java) { epub(container, opf, text) }.message
         )
-        val newer = "OEBPS/yomiage.json" to """{"format":2,"bookId":"b","title":"T"}"""
+        val newer = "OEBPS/yomiage.json" to """{"format":3,"bookId":"b","title":"T"}"""
         assertEquals(
             "This EPUB was built by a different version of yomiage.",
             assertThrows(BookError::class.java) { epub(container, opf, newer) }.message

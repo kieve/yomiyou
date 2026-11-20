@@ -17,7 +17,7 @@ class VoiceFileTest {
     private val audio = listOf(ByteArray(3000) { (it % 251).toByte() }, ByteArray(1200) { (it % 13).toByte() })
 
     private val voiceJson = """
-        {"format":1,"bookId":"b1","voice":"ginga","label":"銀芽 (通常)","credit":"AI声優-銀芽","kbps":64,
+        {"format":2,"bookId":"b1","voice":"ginga","label":"銀芽 (通常)","credit":"AI声優-銀芽","kbps":64,
          "segments":[{"file":"audio/00000.opus","seconds":3.4},{"file":"audio/00001.opus","seconds":1.2}],
          "chapters":[{"number":1,"timings":"timings/0001.json"},{"number":2,"timings":"timings/0002.json"}]}"""
 
@@ -69,14 +69,14 @@ class VoiceFileTest {
 
     @Test
     fun `refuses what it can't play, with a message`() {
-        val newer = voiceJson.replace("\"format\":1", "\"format\":2")
+        val newer = voiceJson.replace("\"format\":2", "\"format\":3")
         assertEquals(
             "This voice file was built by a different version of yomiage.",
             assertThrows(BookError::class.java) { VoiceFile.open(voiceFile(newer), listOf(1, 2)) }.message
         )
         assertEquals(
             "Damaged voice file.",
-            assertThrows(BookError::class.java) { VoiceFile.open(voiceFile("{\"format\":1}"), listOf(1, 2)) }.message
+            assertThrows(BookError::class.java) { VoiceFile.open(voiceFile("{\"format\":2}"), listOf(1, 2)) }.message
         )
     }
 }

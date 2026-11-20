@@ -101,7 +101,7 @@ class EnrichedEpub private constructor(
     }
 
     companion object {
-        const val FORMAT = 1
+        const val FORMAT = 2
         private const val BOOK_JSON = "yomiage.json"
         private const val XHTML = "http://www.w3.org/1999/xhtml"
         private const val EPUB_OPS = "http://www.idpf.org/2007/ops"

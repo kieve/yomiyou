@@ -10,7 +10,7 @@ data class BookInfo(
     val bookId: String,
     val title: String,
     val author: String = "",
-    val phrases: Int? = null,
+    val paragraphs: Int? = null,
     /** The voices whose files are in the folder, in the book's order. */
     val voices: List<VoiceInfo> = emptyList(),
     val position: Position? = null,
@@ -37,7 +37,7 @@ data class BookInfo(
                 bookId = manifest.bookId,
                 title = manifest.title,
                 author = manifest.author,
-                phrases = manifest.phrases,
+                paragraphs = manifest.paragraphs,
                 voices = voices,
             )
     }

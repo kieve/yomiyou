@@ -12,7 +12,7 @@ class BookInfoTest {
         bookId = "4b3e",
         title = "蜘蛛の糸",
         author = "芥川龍之介",
-        phrases = 1781,
+        paragraphs = 32,
         voices = listOf(VoiceInfo("ginga", "銀芽", "AI声優-銀芽"), VoiceInfo("mao", "まお")),
     )
 

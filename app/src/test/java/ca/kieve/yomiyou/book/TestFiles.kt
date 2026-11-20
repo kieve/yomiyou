@@ -33,7 +33,7 @@ object TestFiles {
             <item id="cover" href="images/cover.png" media-type="image/png" properties="cover-image"/>
             <item id="text" href="text.xhtml" media-type="application/xhtml+xml"/></manifest>
             <spine page-progression-direction="rtl"><itemref idref="text"/></spine></package>"""
-        val manifest = """{"format":1,"bookId":"$bookId","title":"$title","phrases":10,
+        val manifest = """{"format":2,"bookId":"$bookId","title":"$title","paragraphs":10,
             "voices":[{"id":"ginga","label":"銀芽 (通常)","credit":"AI声優-銀芽"},{"id":"mao","label":"まお (ノーマル)"}],
             "chapters":[]}"""
         val entries = listOfNotNull(
@@ -48,7 +48,7 @@ object TestFiles {
     }
 
     fun voice(bookId: String, voice: String, label: String): ByteArray = zip(
-        "voice.json" to """{"format":1,"bookId":"$bookId","voice":"$voice","label":"$label","credit":"",
+        "voice.json" to """{"format":2,"bookId":"$bookId","voice":"$voice","label":"$label","credit":"",
             "segments":[],"chapters":[]}""".encodeToByteArray()
     )
 }

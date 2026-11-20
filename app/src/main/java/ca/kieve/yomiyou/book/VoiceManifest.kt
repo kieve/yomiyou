@@ -17,7 +17,7 @@ data class VoiceManifest(
     val chapters: List<ChapterTimings>,
 ) {
     companion object {
-        const val FORMAT = 1
+        const val FORMAT = 2
         const val FILE = "voice.json"
         private val json = Json { ignoreUnknownKeys = true }
 

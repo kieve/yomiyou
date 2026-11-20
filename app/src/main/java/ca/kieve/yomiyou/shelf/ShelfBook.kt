@@ -3,6 +3,7 @@ package ca.kieve.yomiyou.shelf
 import android.net.Uri
 import ca.kieve.yomiyou.book.Library
 import ca.kieve.yomiyou.book.LibraryBook
+import ca.kieve.yomiyou.book.PHRASES_PER_PARAGRAPH
 import ca.kieve.yomiyou.book.Position
 import kotlin.math.roundToInt
 
@@ -25,9 +26,11 @@ object Shelf {
     fun order(books: List<ShelfBook>): List<ShelfBook> =
         books.sortedWith(compareByDescending<ShelfBook> { it.lastOpened ?: Long.MIN_VALUE }.thenBy { it.title })
 
-    fun progress(position: Position?, phrases: Int?): Int? {
-        if (position == null || phrases == null || phrases <= 0) return null
-        return ((position.span + 1) * 100.0 / phrases).roundToInt().coerceIn(0, 100)
+    /** How far through the book: the position's paragraph over the book's paragraphs. */
+    fun progress(position: Position?, paragraphs: Int?): Int? {
+        if (position == null || paragraphs == null || paragraphs <= 0) return null
+        val paragraph = position.span / PHRASES_PER_PARAGRAPH
+        return ((paragraph + 1) * 100.0 / paragraphs).roundToInt().coerceIn(0, 100)
     }
 }
 
@@ -36,7 +39,7 @@ class YomiageShelfBook(private val book: LibraryBook, private val library: Libra
     override val title: String get() = book.info.title
     override val cover: Uri? get() = book.cover
     override val narrated: Boolean get() = book.info.voices.isNotEmpty()
-    override val progress: Int? get() = Shelf.progress(book.info.position, book.info.phrases)
+    override val progress: Int? get() = Shelf.progress(book.info.position, book.info.paragraphs)
     override val lastOpened: Long? get() = book.info.lastOpened
 
     override suspend fun delete() = library.delete(book.folder)
