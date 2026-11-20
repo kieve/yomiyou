@@ -1,7 +1,7 @@
 package ca.kieve.yomiyou.narration
 
 /** One phrase's place in the audio: its segment, and its start and stop in seconds into that segment. */
-data class Timing(val phrase: Int, val chapter: Int, val segment: Int, val start: Double, val stop: Double)
+data class Timing(val phrase: Long, val chapter: Int, val segment: Int, val start: Double, val stop: Double)
 
 /** A voice's timings for the whole book, for finding the phrase being spoken and where a phrase is spoken. */
 class VoiceTimeline private constructor(private val bySegment: Map<Int, List<Timing>>, private val ordered: List<Timing>) {
@@ -42,7 +42,7 @@ class VoiceTimeline private constructor(private val bySegment: Map<Int, List<Tim
     }
 
     /** Where [phrase] is spoken, or the next phrase that is: some (a title page, say) have no audio. */
-    fun from(phrase: Int): Timing? = byPhrase[phrase] ?: ordered.firstOrNull { it.phrase > phrase }
+    fun from(phrase: Long): Timing? = byPhrase[phrase] ?: ordered.firstOrNull { it.phrase > phrase }
 
     /** The first phrase spoken in [chapter], or in the first chapter after it with audio. */
     fun chapterStart(chapter: Int): Timing? = ordered.firstOrNull { it.chapter >= chapter }
@@ -58,7 +58,7 @@ class VoiceTimeline private constructor(private val bySegment: Map<Int, List<Tim
             val places = chapterNumbers.withIndex().associate { (index, number) -> number to index }
             val ordered = timings.flatMap { (number, rows) ->
                 val chapter = places[number] ?: return@flatMap emptyList()
-                rows.map { Timing(it[0].toInt(), chapter, it[1].toInt(), it[2], it[3]) }
+                rows.map { Timing(it[0].toLong(), chapter, it[1].toInt(), it[2], it[3]) }
             }.sortedBy { it.phrase }
             val bySegment = ordered.groupBy { it.segment }.mapValues { (_, list) -> list.sortedBy { it.start } }
             return VoiceTimeline(bySegment, ordered)

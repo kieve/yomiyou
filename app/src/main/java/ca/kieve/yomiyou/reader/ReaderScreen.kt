@@ -54,6 +54,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -155,7 +156,7 @@ private fun Reader(entry: LibraryBook, book: EnrichedEpub, onBack: () -> Unit) {
     val start = spoken?.takeIf { here }?.let { Position(it.chapter, it.phrase) }
         ?: entry.info.position?.takeIf { it.chapter in book.chapters.indices }
     var chapter by rememberSaveable { mutableIntStateOf(start?.chapter ?: 0) }
-    var span by rememberSaveable { mutableIntStateOf(start?.span ?: -1) }
+    var span by rememberSaveable { mutableLongStateOf(start?.span ?: -1L) }
     var controls by rememberSaveable { mutableStateOf(false) }
     var options by rememberSaveable { mutableStateOf(false) }
     var ready by remember { mutableStateOf(false) }
@@ -179,7 +180,7 @@ private fun Reader(entry: LibraryBook, book: EnrichedEpub, onBack: () -> Unit) {
                 }
             }
 
-            override fun onTap(phrase: Int?) {
+            override fun onTap(phrase: Long?) {
                 if (controls) {
                     controls = false
                     options = false

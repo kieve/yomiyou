@@ -51,7 +51,7 @@ data class NarratedBook(
 )
 
 /** The phrase being spoken, with its chapter by place in the book's list. */
-data class Spoken(val chapter: Int, val phrase: Int)
+data class Spoken(val chapter: Int, val phrase: Long)
 
 /**
  * The app's side of the narration: loads a book's voice into [PlaybackService] through a media controller, follows the
@@ -119,7 +119,7 @@ class Narration(
     }
 
     /** Plays [entry] from [phrase], or from [chapter]'s start; loads it first unless it's the book being narrated. */
-    suspend fun play(entry: LibraryBook, chapter: Int, phrase: Int?) {
+    suspend fun play(entry: LibraryBook, chapter: Int, phrase: Long?) {
         _error.value = null
         try {
             val player = connect()

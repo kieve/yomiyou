@@ -168,7 +168,7 @@ class EnrichedEpub private constructor(
                 ?.associate { it.key to it.value }
                 .orEmpty()
 
-        private fun blockOf(body: Element, span: Int): Element? =
+        private fun blockOf(body: Element, span: Long): Element? =
             body.selectFirst("[data-y=\"$span\"]")?.let { it.closest(BLOCK) ?: it }
 
         /**

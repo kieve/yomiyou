@@ -20,7 +20,7 @@ data class BookManifest(
 data class VoiceInfo(val id: String, val label: String, val credit: String = "")
 
 @Serializable
-data class ChapterInfo(val number: Int, val title: String, val href: String, val firstSpan: Int)
+data class ChapterInfo(val number: Int, val title: String, val href: String, val firstSpan: Long)
 
-/** Format 2: a phrase's number (`data-y`) is its paragraph, counted through the book, times this, plus its place in it. */
-const val PHRASES_PER_PARAGRAPH = 1000
+/** Format 2: a phrase's number (`data-y`) is its paragraph, counted through the book, times this, plus its place in it: 64-bit, as a long book passes an Int's range. */
+const val PHRASES_PER_PARAGRAPH = 10_000L

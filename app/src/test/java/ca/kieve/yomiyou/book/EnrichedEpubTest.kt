@@ -22,8 +22,8 @@ class EnrichedEpubTest {
         return EnrichedEpub.open(ZipIndex.open(BytesAccess(bytes)))
     }
 
-    private fun spans(chapter: String): List<Int> =
-        Jsoup.parse(chapter, "", Parser.xmlParser()).select("[data-y]").map { it.attr("data-y").toInt() }
+    private fun spans(chapter: String): List<Long> =
+        Jsoup.parse(chapter, "", Parser.xmlParser()).select("[data-y]").map { it.attr("data-y").toLong() }
 
     @Test
     fun `reads the package and yomiage json`() {
@@ -41,7 +41,7 @@ class EnrichedEpubTest {
         val book = kumoNoIto()
 
         // A phrase crossing an inline element is several spans with one number: count it once.
-        val phrases = book.chapters.indices.flatMap { spans(book.chapter(it)) }.fold(mutableListOf<Int>()) { list, span ->
+        val phrases = book.chapters.indices.flatMap { spans(book.chapter(it)) }.fold(mutableListOf<Long>()) { list, span ->
             if (list.lastOrNull() != span) list.add(span)
             list
         }

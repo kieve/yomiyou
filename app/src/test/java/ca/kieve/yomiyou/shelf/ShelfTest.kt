@@ -25,11 +25,12 @@ class ShelfTest {
 
     @Test
     fun `progress is the paragraph read out of the book's paragraphs`() {
-        // A phrase's number is its paragraph times 1000 plus its place in it.
-        assertEquals(50, Shelf.progress(Position(chapter = 3, span = 499_003), paragraphs = 1000))
+        // A phrase's number is its paragraph times 10,000 plus its place in it, 64-bit.
+        assertEquals(50, Shelf.progress(Position(chapter = 3, span = 4_990_003), paragraphs = 1000))
         assertEquals(0, Shelf.progress(Position(chapter = 0, span = 0), paragraphs = 1000))
-        assertEquals(100, Shelf.progress(Position(chapter = 9, span = 999_012), paragraphs = 1000))
-        assertEquals(100, Shelf.progress(Position(chapter = 9, span = 5_000_000), paragraphs = 1000))
+        assertEquals(100, Shelf.progress(Position(chapter = 9, span = 9_990_012), paragraphs = 1000))
+        assertEquals(100, Shelf.progress(Position(chapter = 9, span = 50_000_000), paragraphs = 1000))
+        assertEquals(50, Shelf.progress(Position(chapter = 0, span = 15_000_000_000), paragraphs = 3_000_000), "past an Int")
         assertNull(Shelf.progress(null, paragraphs = 1000))
         assertNull(Shelf.progress(Position(chapter = 3, span = 499), paragraphs = null))
     }

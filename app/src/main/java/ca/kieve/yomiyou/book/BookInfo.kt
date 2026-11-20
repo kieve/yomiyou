@@ -45,4 +45,4 @@ data class BookInfo(
 
 /** A chapter by its place in the book's chapter list, and the phrase being read. */
 @Serializable
-data class Position(val chapter: Int, val span: Int)
+data class Position(val chapter: Int, val span: Long)

@@ -28,6 +28,7 @@ import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 
 /**
@@ -48,7 +49,7 @@ class ReaderPage(
         fun onPosition(position: Position)
 
         /** A single tap, on [phrase] or (null) between phrases. */
-        fun onTap(phrase: Int?)
+        fun onTap(phrase: Long?)
 
         fun onDoubleTap()
 
@@ -94,7 +95,7 @@ class ReaderPage(
     }
 
     /** Starts the book at [chapter]: at [span] if given, else at the chapter's start. */
-    fun open(chapter: Int, span: Int?, style: ReadingStyle) {
+    fun open(chapter: Int, span: Long?, style: ReadingStyle) {
         this.style = style
         val start = buildJsonObject {
             put("vertical", book.vertical)
@@ -112,7 +113,7 @@ class ReaderPage(
     }
 
     /** Lights the phrase being spoken, in [chapter]; null puts the light out. */
-    fun light(phrase: Int?, chapter: Int) {
+    fun light(phrase: Long?, chapter: Int) {
         view.evaluateJavascript("reader.light(${phrase ?: "null"}, $chapter)", null)
     }
 
@@ -163,15 +164,16 @@ class ReaderPage(
     private fun received(data: String, reply: JavaScriptReplyProxy) {
         val message = runCatching { Json.parseToJsonElement(data).jsonObject }.getOrNull() ?: return
         fun int(name: String) = message[name]?.jsonPrimitive?.intOrNull
+        fun long(name: String) = message[name]?.jsonPrimitive?.longOrNull
         when (message["type"]?.jsonPrimitive?.content) {
             "ready" -> listener.onReady()
             "need" -> int("chapter")?.takeIf { it in book.chapters.indices }?.let(::add)
             "position" -> {
                 val chapter = int("chapter") ?: return
-                val span = int("span") ?: return
+                val span = long("span") ?: return
                 listener.onPosition(Position(chapter, span))
             }
-            "tap" -> listener.onTap(int("span"))
+            "tap" -> listener.onTap(long("span"))
             "double" -> listener.onDoubleTap()
             "hold" -> listener.onHold()
             "lookup" -> listener.onLookup(message["open"]?.jsonPrimitive?.booleanOrNull == true)
