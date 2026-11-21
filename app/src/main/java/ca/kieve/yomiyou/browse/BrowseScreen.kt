@@ -28,7 +28,7 @@ interface BrowseSource {
     fun Item(onStarted: () -> Unit)
 }
 
-private val sources: List<BrowseSource> = listOf(EpubFiles, DictionaryFile)
+private val sources: List<BrowseSource> = listOf(ServerSource, EpubFiles, DictionaryFile)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

@@ -8,6 +8,7 @@ import ca.kieve.yomiyou.browse.Importer
 import ca.kieve.yomiyou.dictionary.Dictionary
 import ca.kieve.yomiyou.narration.Narration
 import ca.kieve.yomiyou.reader.ReadingStyleStore
+import ca.kieve.yomiyou.server.ServerBooks
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -26,6 +27,7 @@ class Services private constructor(context: Context) {
     val importer = Importer(context, library, activity, scope)
     val narration = Narration(context, library, context.settings)
     val dictionary = Dictionary(context, library, activity, scope)
+    val server = ServerBooks(library, narration, activity, context.settings, scope)
 
     /** A book to open in the reader, asked for from outside the screens (the media notification). */
     val openRequests = MutableStateFlow<String?>(null)

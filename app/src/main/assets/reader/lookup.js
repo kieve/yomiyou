@@ -521,6 +521,7 @@
   };
   var ACTIONS_GAP = 24;
   var CHECK = '<svg viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>';
+  var FIX = '<svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75zM20.7 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75z"/></svg>';
   var COPY = '<svg viewBox="0 0 24 24"><path d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11z"/></svg>';
   function action(label, icon) {
     const button = document.createElement("button");
@@ -596,6 +597,17 @@
       this.copy = action("Copy", COPY);
       this.actions = document.createElement("div");
       this.actions.className = `lookup-actions${options.vertical ? " vertical" : ""}`;
+      if (options.fix) {
+        const fix = action("Fix reading", FIX);
+        fix.addEventListener("click", () => {
+          const selection = this.selection;
+          if (!selection) return;
+          const text = selection.map.text.slice(selection.start, selection.end);
+          this.close();
+          options.fix?.(text);
+        }, { signal });
+        this.actions.prepend(fix);
+      }
       this.actions.append(this.copy, this.confirm);
       this.panel = document.createElement("div");
       this.panel.className = "lookup-panel";

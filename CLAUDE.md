@@ -55,6 +55,15 @@ minSdk 26, Java 17, Kotlin DSL and a version catalog. Material and navigation st
   imported from Browse, each cleared in Settings; finds entries for the page). The lookup itself (hold, handles,
   panel) is yomiage's: `assets/reader/lookup.js` and `lookup.css` are copies of its `build/generated/reader/app/`,
   refreshed by hand when it changes, with the yomiage commit named in the commit message.
+- `server`: the yomiage server (its address in Settings, `https://yomiage.kieve.dev` by default). `YomiageServer` (its
+  API: books, manifests, files by hash, corrections, an update's status), `ServerBooks` (each book's state against the
+  server, followed while it updates; downloads into the library, the manifest kept as the book folder's `server.json`,
+  files replaced whole through `Library.replace`), `VoiceAssembly` (a voice file written from the parts the copy
+  already has, checked by hash, plus the downloaded ones). Browse lists the server's books (`browse/ServerSource`); a
+  book with `server.json` gets Fix reading in the lookup, and the reader shows the server's progress, then "Update, N
+  MB", reopening the book where it was once downloaded. Android 17 blocks LAN connections for apps targeting it:
+  `LocalNetwork` asks for `ACCESS_LOCAL_NETWORK` (Android shows it as "nearby devices") before the server is reached,
+  and once refused, a tap opens the app's settings.
 - `narration`: `VoiceFile` (a voice zip: its manifest and timings; the audio read where it lies), `VoiceTimeline`
   (the phrase spoken at a moment, where a phrase is spoken), `PlaybackService` (Media3's `MediaSessionService`: playing
   with the screen off, the media notification, the lock screen and the headset), `VoiceDataSource` (segments read out of

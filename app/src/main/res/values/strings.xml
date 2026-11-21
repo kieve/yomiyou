@@ -31,6 +31,16 @@
     <string name="browse_busy">Importing: see Activity</string>
     <string name="browse_dictionary">Dictionary</string>
     <string name="browse_dictionarySummary">A Yomitan dictionary, such as JMdict or JMnedict</string>
+    <string name="browse_server">yomiage server</string>
+    <string name="browse_serverSummary">Books narrated on %1$s</string>
+    <string name="browse_serverLoading">Asking the server</string>
+    <string name="browse_serverNoAccess">Allow local network access to reach the server. Tap to ask again</string>
+    <string name="browse_serverDownload">Download, %1$s</string>
+    <string name="browse_serverUpdate">Update, %1$s</string>
+    <string name="browse_serverCurrent">On the shelf</string>
+    <string name="browse_serverNotBuilt">Not built yet</string>
+    <string name="browse_serverWorking">Updating on the server: %1$s</string>
+    <string name="browse_serverDownloading">Downloading %1$s of %2$s</string>
 
     <!-- Activity -->
     <string name="activity_empty">Nothing yet. Imports show here.</string>
@@ -56,6 +66,14 @@
     <string name="reader_slower">Slower</string>
     <string name="reader_faster">Faster</string>
     <string name="reader_voice">Voice</string>
+    <string name="reader_fix">Fix reading</string>
+    <string name="reader_fixWritten">Written</string>
+    <string name="reader_fixReading">Reading, in kana</string>
+    <string name="reader_fixAccent">Accent</string>
+    <string name="reader_fixHint">The mora after which the pitch falls, 0 for flat. Applies to the whole book.</string>
+    <string name="reader_fixSend">Fix</string>
+    <string name="reader_fixCancel">Cancel</string>
+    <string name="reader_update">Update, %1$s</string>
     <string name="narration_back">Back 10 seconds</string>
     <string name="narration_forward">Forward 10 seconds</string>
     <string name="reader_notFound">This book isn\'t in the library folder.</string>
@@ -67,6 +85,10 @@
     <string name="settings_dictionaryNone">None. Add one in Browse</string>
     <string name="settings_dictionaryEntries">%1$s, %2$,d entries</string>
     <string name="settings_dictionaryClear">Clear</string>
+    <string name="settings_server">yomiage server</string>
+    <string name="settings_serverAddress">Server address</string>
+    <string name="settings_serverSave">Save</string>
+    <string name="settings_serverCancel">Cancel</string>
     <string name="settings_debug">Debug</string>
     <string name="settings_webnovelScreens">Webnovel screens</string>
     <string name="settings_webnovelScreensSummary">The old library, search and reader</string>

@@ -24,11 +24,14 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -42,6 +45,7 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -53,6 +57,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -69,6 +74,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -83,10 +89,15 @@ import ca.kieve.yomiyou.book.LibraryBook
 import ca.kieve.yomiyou.book.Position
 import ca.kieve.yomiyou.book.VoiceInfo
 import ca.kieve.yomiyou.book.ZipIndex
+import ca.kieve.yomiyou.browse.megabytes
 import ca.kieve.yomiyou.home.Services
 import ca.kieve.yomiyou.home.services
 import ca.kieve.yomiyou.narration.Speed
 import ca.kieve.yomiyou.narration.VoiceChoice
+import ca.kieve.yomiyou.server.BookState
+import ca.kieve.yomiyou.server.Correction
+import ca.kieve.yomiyou.server.ServerManifest
+import ca.kieve.yomiyou.server.rememberLocalNetwork
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -106,7 +117,13 @@ fun ReaderScreen(bookId: String, onBack: () -> Unit) {
     val context = LocalContext.current
     val services = context.services
     val notFound = stringResource(R.string.reader_notFound)
-    val opening by produceState<Opening>(Opening.Loading, bookId) {
+    // Moves on when a download replaced the book's files: it's opened again, where it was.
+    var generation by remember { mutableIntStateOf(0) }
+    LaunchedEffect(bookId) {
+        services.server.updated.collect { if (it == bookId) generation++ }
+    }
+    val opening by produceState<Opening>(Opening.Loading, bookId, generation) {
+        value = Opening.Loading
         value = withContext(Dispatchers.IO) { open(services, bookId) ?: Opening.Failed(notFound) }
     }
     when (val state = opening) {
@@ -114,7 +131,7 @@ fun ReaderScreen(bookId: String, onBack: () -> Unit) {
         is Opening.Failed -> Failure(state.message, onBack)
         is Opening.Open -> {
             DisposableEffect(state.book) { onDispose { state.book.close() } }
-            Reader(state.entry, state.book, onBack)
+            key(state.book) { Reader(state.entry, state.book, onBack) }
         }
     }
 }
@@ -164,6 +181,13 @@ private fun Reader(entry: LibraryBook, book: EnrichedEpub, onBack: () -> Unit) {
     var lookingUp by remember { mutableStateOf(false) }
     val dictionaries by services.dictionary.infos.collectAsState()
     val drawer = rememberDrawerState(DrawerValue.Closed)
+    val bookId = entry.info.bookId
+    val fromServer = entry.file(ServerManifest.FILE) != null
+    val serverStates by services.server.states.collectAsState()
+    val serverState = serverStates[bookId].takeIf { fromServer }
+    var fixing by remember { mutableStateOf<String?>(null) }
+    val network = if (fromServer) rememberLocalNetwork() else null
+    LaunchedEffect(fromServer, network?.granted) { if (network?.granted == true) services.server.check(bookId) }
 
     val page = remember(book) {
         ReaderPage(context, book, scope, services.dictionary, object : ReaderPage.Listener {
@@ -202,6 +226,11 @@ private fun Reader(entry: LibraryBook, book: EnrichedEpub, onBack: () -> Unit) {
                 lookingUp = open
             }
 
+            override fun onFix(text: String) {
+                narration.pause()
+                fixing = text
+            }
+
             override fun onError(message: String) {
                 error = message
             }
@@ -211,7 +240,7 @@ private fun Reader(entry: LibraryBook, book: EnrichedEpub, onBack: () -> Unit) {
 
     LaunchedEffect(ready, style == null) {
         val current = style ?: return@LaunchedEffect
-        if (ready) page.open(chapter, span.takeIf { it >= 0 }, current)
+        if (ready) page.open(chapter, span.takeIf { it >= 0 }, current, fromServer)
     }
     LaunchedEffect(style) {
         style?.let { if (ready) page.applyStyle(it) }
@@ -333,6 +362,30 @@ private fun Reader(entry: LibraryBook, book: EnrichedEpub, onBack: () -> Unit) {
                     it,
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.align(Alignment.Center).padding(16.dp)
+                )
+            }
+            serverState?.let { state ->
+                ServerLine(
+                    state = state,
+                    onUpdate = { manifest ->
+                        scope.launch {
+                            if (span >= 0) services.library.updateInfo(entry) { it.copy(position = Position(chapter, span)) }
+                            services.server.download(manifest, book.title)
+                        }
+                    },
+                    modifier = Modifier.align(Alignment.TopCenter)
+                        .windowInsetsPadding(WindowInsets.statusBars)
+                        .padding(top = if (controls) 72.dp else 8.dp)
+                )
+            }
+            fixing?.let { selected ->
+                FixDialog(
+                    selected = selected,
+                    onFix = { correction ->
+                        fixing = null
+                        services.server.correct(bookId, correction)
+                    },
+                    onDismiss = { fixing = null }
                 )
             }
         }
@@ -549,4 +602,86 @@ private fun Failure(message: String, onBack: () -> Unit) {
         Text(message, style = MaterialTheme.typography.bodyLarge)
         TextButton(onClick = onBack) { Text(stringResource(R.string.reader_back)) }
     }
+}
+
+/** The server's work on this book (after a correction), then its update, ready to download. */
+@Composable
+private fun ServerLine(state: BookState, onUpdate: (ServerManifest) -> Unit, modifier: Modifier = Modifier) {
+    val text = when (state) {
+        is BookState.Working -> stringResource(R.string.browse_serverWorking, state.stage)
+        is BookState.Downloading ->
+            stringResource(R.string.browse_serverDownloading, megabytes(state.bytes), megabytes(state.total))
+        is BookState.Failed -> state.message
+        is BookState.Available -> null
+        BookState.Current, BookState.NotBuilt -> return
+    }
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = RoundedCornerShape(20.dp),
+        tonalElevation = 3.dp,
+        modifier = modifier.padding(horizontal = 16.dp)
+    ) {
+        if (state is BookState.Available) {
+            TextButton(onClick = { onUpdate(state.manifest) }) {
+                Text(stringResource(R.string.reader_update, megabytes(state.bytes)))
+            }
+        } else {
+            Text(
+                text.orEmpty(),
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (state is BookState.Failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+            )
+        }
+    }
+}
+
+/** Fix reading: the selection as the written form, its reading in kana and its accent, for the whole book. */
+@Composable
+private fun FixDialog(selected: String, onFix: (Correction) -> Unit, onDismiss: () -> Unit) {
+    var form by remember { mutableStateOf(selected) }
+    var reading by remember { mutableStateOf("") }
+    var accent by remember { mutableStateOf("0") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.reader_fix)) },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = form,
+                    onValueChange = { form = it },
+                    label = { Text(stringResource(R.string.reader_fixWritten)) },
+                    singleLine = true,
+                )
+                OutlinedTextField(
+                    value = reading,
+                    onValueChange = { reading = it },
+                    label = { Text(stringResource(R.string.reader_fixReading)) },
+                    singleLine = true,
+                )
+                OutlinedTextField(
+                    value = accent,
+                    onValueChange = { value -> accent = value.filter(Char::isDigit) },
+                    label = { Text(stringResource(R.string.reader_fixAccent)) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                )
+                Text(
+                    stringResource(R.string.reader_fixHint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onFix(Correction(form.trim(), reading.trim(), accent.toIntOrNull() ?: 0)) },
+                enabled = form.isNotBlank() && reading.isNotBlank()
+            ) { Text(stringResource(R.string.reader_fixSend)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.reader_fixCancel)) }
+        },
+    )
 }

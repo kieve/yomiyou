@@ -59,6 +59,9 @@ class ReaderPage(
         /** The lookup opened or closed: while open, Back closes it. */
         fun onLookup(open: Boolean)
 
+        /** Fix reading was chosen in the lookup, for [text] (a book from the server). */
+        fun onFix(text: String)
+
         fun onError(message: String)
     }
 
@@ -94,8 +97,8 @@ class ReaderPage(
         view.loadUrl(ReaderUrls.PAGE)
     }
 
-    /** Starts the book at [chapter]: at [span] if given, else at the chapter's start. */
-    fun open(chapter: Int, span: Long?, style: ReadingStyle) {
+    /** Starts the book at [chapter]: at [span] if given, else at the chapter's start; [server]: readings can be fixed. */
+    fun open(chapter: Int, span: Long?, style: ReadingStyle, server: Boolean = false) {
         this.style = style
         val start = buildJsonObject {
             put("vertical", book.vertical)
@@ -104,6 +107,7 @@ class ReaderPage(
             put("span", span?.let(::JsonPrimitive) ?: JsonNull)
             put("style", variables(style))
             put("dictionary", hasDictionary)
+            put("server", server)
         }
         view.evaluateJavascript("reader.open($start)", null)
     }
@@ -177,6 +181,7 @@ class ReaderPage(
             "double" -> listener.onDoubleTap()
             "hold" -> listener.onHold()
             "lookup" -> listener.onLookup(message["open"]?.jsonPrimitive?.booleanOrNull == true)
+            "fix" -> message["text"]?.jsonPrimitive?.content?.takeIf { it.isNotBlank() }?.let(listener::onFix)
             "find" -> find(int("id") ?: return, message["texts"]?.jsonArray?.map { it.jsonPrimitive.content }.orEmpty(), reply)
             "error" -> listener.onError(message["message"]?.jsonPrimitive?.content.orEmpty())
         }

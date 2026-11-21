@@ -50,6 +50,7 @@
             vertical: vertical(),
             onHold: () => post({ type: "hold" }),
             onOpen: (open) => post({ type: "lookup", open }),
+            fix: book?.server ? (selected) => post({ type: "fix", text: selected }) : undefined,
         });
     };
 
@@ -176,10 +177,14 @@
     };
 
     window.reader = {
-        /** @param start {vertical, count, chapter, span, style}; span: a phrase to show, else the chapter's start */
+        /**
+         * @param start {vertical, count, chapter, span, style, dictionary, server}; span: a phrase to show, else the
+         *   chapter's start; server: the book came from the yomiage server, so a reading can be fixed
+         */
         open(start) {
             book = {
                 vertical: start.vertical,
+                server: start.server === true,
                 count: start.count,
                 lo: start.chapter,
                 hi: start.chapter - 1,

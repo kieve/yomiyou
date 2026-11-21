@@ -21,6 +21,7 @@ import kotlinx.coroutines.withContext
 import java.io.FileInputStream
 import java.io.IOException
 import java.io.InputStream
+import java.io.OutputStream
 
 /** A book folder in the library, its `book.json`, and its files by name. */
 data class LibraryBook(val folder: Uri, val info: BookInfo, val files: Map<String, Uri>) {
@@ -116,6 +117,27 @@ class Library(private val context: Context, private val store: DataStore<Prefere
             overwrite(file, input, progress)
             file
         }
+
+    /**
+     * Replaces [name] in [folder] whole: [write] fills `<name>.part`, which then takes the name, so a write cut short
+     * leaves the old file as it was. A `.part` file is never taken for a book's file.
+     */
+    suspend fun replace(folder: Uri, name: String, write: (OutputStream) -> Unit): Uri = withContext(Dispatchers.IO) {
+        val partName = "$name.part"
+        val existing = children(folder).filter { !it.directory }
+        val part = existing.firstOrNull { it.name == partName }?.uri
+            ?: DocumentsContract.createDocument(resolver, folder, OCTET_STREAM, partName)
+            ?: throw IOException("Couldn't write $name.")
+        val output = resolver.openOutputStream(part, "wt") ?: throw IOException("Couldn't write $name.")
+        output.use(write)
+        existing.firstOrNull { it.name == name }?.let {
+            if (!DocumentsContract.deleteDocument(resolver, it.uri)) throw IOException("Couldn't replace $name.")
+        }
+        DocumentsContract.renameDocument(resolver, part, name) ?: throw IOException("Couldn't rename $partName.")
+    }
+
+    fun read(file: Uri): ByteArray =
+        resolver.openInputStream(file)?.use { it.readBytes() } ?: throw IOException("Couldn't read $file.")
 
     suspend fun writeInfo(folder: Uri, info: BookInfo): Uri = write(folder, BookInfo.FILE, info.encode().byteInputStream())
 
