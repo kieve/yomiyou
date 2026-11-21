@@ -46,7 +46,7 @@ minSdk 26, Java 17, Kotlin DSL and a version catalog. Material and navigation st
   picked files make, the names in a book folder), `VoiceManifest` (`voice.json`).
 - `reader`: `ReaderBook` (what the reader shows, whatever the kind of book), `ReaderScreen` (the book full screen, system
   bars hidden; a single tap jumps the narration to a phrase, a double tap brings up the controls (play, speed, the
-  chapter drawer, the reader options), a hold looks a word up and pauses the narration, Back closes the lookup), `ReaderPage` (the WebView; its
+  chapter drawer, the reader options), a hold looks a word up and pauses the narration, Back closes the lookup), `ReaderPage` (the WebView, with Android's `Magnifier` on the selection edge a lookup handle drags: left of it for vertical text, away from a right hand, right at the screen's left edge, above it for horizontal; its
   page is `assets/reader/`, served with the book's files by a `WebViewAssetLoader`: the whole book as one scroll, five
   chapters loaded at a time around the reader; it answers the lookup's dictionary queries), `ReadingStyle` (app-wide, as CSS variables on the page).
 - `dictionary`: the popup dictionary. `Yomitan` (a Yomitan zip read into entries, as yomiage's `dictionary.ts` reads it; both

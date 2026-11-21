@@ -51,6 +51,9 @@
             onHold: () => post({ type: "hold" }),
             onOpen: (open) => post({ type: "lookup", open }),
             fix: book?.server ? (selected) => post({ type: "fix", text: selected }) : undefined,
+            // The app magnifies the selection's edge being dragged: in the WebView's pixels.
+            onDrag: (point) =>
+                post(point ? { type: "drag", x: point.x * devicePixelRatio, y: point.y * devicePixelRatio } : { type: "drag" }),
         });
     };
 

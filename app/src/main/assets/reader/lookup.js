@@ -520,6 +520,7 @@
     }
   };
   var ACTIONS_GAP = 24;
+  var DISMISS = '<svg viewBox="0 0 24 24"><path d="M19 6.4 17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12z"/></svg>';
   var CHECK = '<svg viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>';
   var FIX = '<svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75zM20.7 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75z"/></svg>';
   var COPY = '<svg viewBox="0 0 24 24"><path d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11z"/></svg>';
@@ -614,9 +615,20 @@
       const grip = document.createElement("div");
       grip.className = "lookup-grip";
       grip.title = "Drag to move";
+      const dismiss = document.createElement("button");
+      dismiss.type = "button";
+      dismiss.className = "lookup-dismiss";
+      dismiss.title = "Hide";
+      dismiss.setAttribute("aria-label", "Hide");
+      dismiss.innerHTML = DISMISS;
+      dismiss.addEventListener("click", () => {
+        this.panel.hidden = true;
+        this.confirm.hidden = false;
+        this.place();
+      }, { signal });
       this.entries = document.createElement("div");
       this.entries.className = "lookup-entries";
-      this.panel.append(grip, this.entries);
+      this.panel.append(grip, dismiss, this.entries);
       this.movable(grip);
       this.entries.addEventListener("toggle", () => this.place(), { capture: true });
       this.layer.append(this.startHandle, this.endHandle, this.actions, this.panel);
@@ -683,6 +695,7 @@
       this.asked++;
       this.panelAt = null;
       this.selection = null;
+      if (this.dragging) this.options.onDrag?.(null);
       this.dragging = null;
       this.highlight?.clear();
       if (!this.layer.hidden) {
@@ -712,15 +725,28 @@
         this.panel.hidden = true;
         this.confirm.hidden = false;
         this.place();
+        this.reportEdge();
       });
-      handle.addEventListener("pointermove", (event) => this.drag(event));
+      handle.addEventListener("pointermove", (event) => {
+        if (this.dragging !== end) return;
+        this.drag(event);
+        this.reportEdge();
+      });
       const stop = () => {
+        if (this.dragging) this.options.onDrag?.(null);
         this.dragging = null;
         this.layer.classList.remove("dragging");
       };
       handle.addEventListener("pointerup", stop);
       handle.addEventListener("pointercancel", stop);
       return handle;
+    }
+    /** The dragged edge's character, for the app's magnifier. */
+    reportEdge() {
+      const selection = this.selection;
+      if (!selection || !this.dragging || !this.options.onDrag) return;
+      const box = selection.map.box(this.dragging === "start" ? selection.start : selection.end - 1);
+      this.options.onDrag({ x: box.left + box.width / 2, y: box.top + box.height / 2 });
     }
     pressed(event) {
       if (!event.isPrimary || event.button !== 0 || this.layer.contains(event.target)) return;

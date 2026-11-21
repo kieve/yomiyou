@@ -20,8 +20,12 @@
                 border-radius: 8px; background: var(--bg); color: var(--fg); z-index: 21;
                 box-shadow: 0 6px 24px rgb(0 0 0 / 35%); writing-mode: horizontal-tb; text-align: left; }
 .lookup-panel[data-side="top"], .lookup-panel[data-side="bottom"] { width: auto; max-height: 40vh; }
-.lookup-grip { flex: none; height: 20px; cursor: grab; touch-action: none; }
-.lookup-grip::after { content: ""; display: block; width: 36px; height: 4px; margin: 8px auto 0; border-radius: 2px;
+.lookup-grip { flex: none; height: 30px; cursor: grab; touch-action: none; }
+/* Hides the panel and keeps the selection: the top right corner, clear of the grip. */
+.lookup-dismiss { position: absolute; top: 0; right: 0; width: 30px; height: 30px; padding: 6px; border: 0;
+                  border-radius: 50%; background: none; color: var(--muted); cursor: pointer; }
+.lookup-dismiss svg { display: block; width: 100%; height: 100%; fill: currentColor; }
+.lookup-grip::after { content: ""; display: block; width: 36px; height: 4px; margin: 10px auto 0; border-radius: 2px;
                       background: var(--line); }
 .lookup-entries { overflow: auto; padding: 0 16px 12px; }
 .lookup-word + .lookup-word { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
@@ -44,3 +48,5 @@ div.lookup-senses { padding-left: 0; }
 .lookup-more > .lookup-word { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
 /* While a handle is dragged, the finger finds the text under it, not the lookup's own controls. */
 .lookup-layer.dragging, .lookup-layer.dragging * { pointer-events: none; }
+/* And the buttons step aside, so the app's magnifier shows the text alone. */
+.lookup-layer.dragging .lookup-actions { visibility: hidden; }

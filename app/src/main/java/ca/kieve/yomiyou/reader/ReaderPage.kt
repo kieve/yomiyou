@@ -4,10 +4,13 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.graphics.Color
+import android.os.Build
+import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
+import android.widget.Magnifier
 import ca.kieve.yomiyou.book.Position
 import ca.kieve.yomiyou.dictionary.Dictionary
 import androidx.webkit.JavaScriptReplyProxy
@@ -24,6 +27,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -66,6 +70,8 @@ class ReaderPage(
     }
 
     val view = WebView(context)
+    /** Made on the first drag of a lookup handle. */
+    private var magnifier: PageMagnifier? = null
     private var style: ReadingStyle? = null
     private var hasDictionary = false
 
@@ -138,7 +144,10 @@ class ReaderPage(
         view.evaluateJavascript("reader.closeLookup()", null)
     }
 
-    fun destroy() = view.destroy()
+    fun destroy() {
+        magnifier?.dismiss()
+        view.destroy()
+    }
 
     private fun add(chapter: Int) {
         scope.launch {
@@ -181,9 +190,65 @@ class ReaderPage(
             "double" -> listener.onDoubleTap()
             "hold" -> listener.onHold()
             "lookup" -> listener.onLookup(message["open"]?.jsonPrimitive?.booleanOrNull == true)
+            "drag" -> {
+                val x = message["x"]?.jsonPrimitive?.doubleOrNull
+                val y = message["y"]?.jsonPrimitive?.doubleOrNull
+                if (x != null && y != null) {
+                    val shown = magnifier ?: PageMagnifier(view, book.vertical).also { magnifier = it }
+                    shown.show(x.toFloat(), y.toFloat())
+                } else {
+                    magnifier?.dismiss()
+                }
+            }
             "fix" -> message["text"]?.jsonPrimitive?.content?.takeIf { it.isNotBlank() }?.let(listener::onFix)
             "find" -> find(int("id") ?: return, message["texts"]?.jsonArray?.map { it.jsonPrimitive.content }.orEmpty(), reply)
             "error" -> listener.onError(message["message"]?.jsonPrimitive?.content.orEmpty())
         }
+    }
+}
+
+/**
+ * Android's own text magnifier over the page while a lookup handle is dragged, showing the selection's edge (the
+ * finger covers it, or has drifted off to the side). Horizontal lines: a wide window above it. Vertical columns: a tall
+ * one to its left, away from a right hand's finger, or to its right where the left has no room, so nothing up or down
+ * the column is hidden. Before Android 10, Android's default window, above it.
+ */
+private class PageMagnifier(private val view: View, private val vertical: Boolean) {
+    private val dp = view.resources.displayMetrics.density
+    private val width = if (vertical) 72 * dp else 168 * dp
+    private val height = if (vertical) 168 * dp else 64 * dp
+    /** From the edge character's centre to the window's near edge. */
+    private val gap = 36 * dp
+
+    private val magnifier: Magnifier? = when {
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.P -> null
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.Q -> Magnifier(view)
+        else -> Magnifier.Builder(view)
+            .setSize(width.toInt(), height.toInt())
+            .setInitialZoom(1.5f)
+            .setCornerRadius(12 * dp)
+            .build()
+    }
+
+    fun show(x: Float, y: Float) {
+        val magnifier = magnifier ?: return
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            magnifier.show(x, y)
+            return
+        }
+        // Centres, in the view's pixels.
+        val (centreX, centreY) = if (vertical) {
+            val left = x - gap - width / 2
+            val right = x + gap + width / 2
+            val beside = if (left - width / 2 >= 0) left else right
+            beside to y.coerceIn(height / 2, (view.height - height / 2).coerceAtLeast(height / 2))
+        } else {
+            x to y - gap - height / 2
+        }
+        magnifier.show(x, y, centreX, centreY)
+    }
+
+    fun dismiss() {
+        magnifier?.dismiss()
     }
 }
