@@ -15,6 +15,7 @@ import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
+import ca.kieve.yomiyou.browse.ServerScreen
 import ca.kieve.yomiyou.reader.ReaderScreen
 import kotlinx.serialization.Serializable
 
@@ -23,6 +24,9 @@ data object Tabs : NavKey
 
 @Serializable
 data class Reader(val bookId: String) : NavKey
+
+@Serializable
+data object ServerShelf : NavKey
 
 @Composable
 fun Home() {
@@ -50,7 +54,12 @@ private fun Destinations() {
         backStack = backStack,
         onBack = { backStack.removeLastOrNull() },
         entryProvider = entryProvider {
-            entry<Tabs> { TabsScreen(onOpenBook = { backStack.add(Reader(it)) }) }
+            entry<Tabs> {
+                TabsScreen(onOpenBook = { backStack.add(Reader(it)) }, onOpenServer = { backStack.add(ServerShelf) })
+            }
+            entry<ServerShelf> {
+                ServerScreen(onBack = { backStack.removeLastOrNull() }, onOpenBook = { backStack.add(Reader(it)) })
+            }
             entry<Reader> { key -> ReaderScreen(key.bookId, onBack = { backStack.removeLastOrNull() }) }
         }
     )

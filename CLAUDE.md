@@ -59,7 +59,9 @@ minSdk 26, Java 17, Kotlin DSL and a version catalog. Material and navigation st
   API: books, manifests, files by hash, corrections, an update's status), `ServerBooks` (each book's state against the
   server, followed while it updates; downloads into the library, the manifest kept as the book folder's `server.json`,
   files replaced whole through `Library.replace`), `VoiceAssembly` (a voice file written from the parts the copy
-  already has, checked by hash, plus the downloaded ones). Browse lists the server's books (`browse/ServerSource`); a
+  already has, checked by hash, plus the downloaded ones). Browse's "yomiage server" opens `browse/ServerScreen`: its loading,
+  why it can't reach the server or the permission to allow, then the server's books as a shelf with their covers
+  (`/books/<bookId>/cover`), those here checked, a download or update with its size and progress on the tile; a
   book with `server.json` gets Fix reading in the lookup, and the reader shows the server's progress, then "Update, N
   MB", reopening the book where it was once downloaded. Android 17 blocks LAN connections for apps targeting it:
   `LocalNetwork` asks for `ACCESS_LOCAL_NETWORK` (Android shows it as "nearby devices") before the server is reached,

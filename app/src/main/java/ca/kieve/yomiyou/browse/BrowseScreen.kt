@@ -23,30 +23,30 @@ import ca.kieve.yomiyou.home.services
 
 /** A way to add books, listed in Browse. */
 interface BrowseSource {
-    /** [onStarted]: work began that the Activity tab follows. */
+    /** [onStarted]: work began that the Activity tab follows; [onOpenServer]: the server's books, a screen of their own. */
     @Composable
-    fun Item(onStarted: () -> Unit)
+    fun Item(onStarted: () -> Unit, onOpenServer: () -> Unit)
 }
 
 private val sources: List<BrowseSource> = listOf(ServerSource, EpubFiles, DictionaryFile)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BrowseScreen(onStarted: () -> Unit) {
+fun BrowseScreen(onStarted: () -> Unit, onOpenServer: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(title = { Text(stringResource(R.string.home_browse)) })
         }
     ) { innerPadding ->
         LazyColumn(contentPadding = innerPadding) {
-            items(sources) { it.Item(onStarted) }
+            items(sources) { it.Item(onStarted, onOpenServer) }
         }
     }
 }
 
 private object EpubFiles : BrowseSource {
     @Composable
-    override fun Item(onStarted: () -> Unit) {
+    override fun Item(onStarted: () -> Unit, onOpenServer: () -> Unit) {
         val importer = LocalContext.current.services.importer
         val busy by importer.busy.collectAsState()
         val pick = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) {
@@ -64,7 +64,7 @@ private object EpubFiles : BrowseSource {
 
 private object DictionaryFile : BrowseSource {
     @Composable
-    override fun Item(onStarted: () -> Unit) {
+    override fun Item(onStarted: () -> Unit, onOpenServer: () -> Unit) {
         val dictionary = LocalContext.current.services.dictionary
         val busy by dictionary.busy.collectAsState()
         val pick = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->

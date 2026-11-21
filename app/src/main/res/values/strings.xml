@@ -34,7 +34,13 @@
     <string name="browse_server">yomiage server</string>
     <string name="browse_serverSummary">Books narrated on %1$s</string>
     <string name="browse_serverLoading">Asking the server</string>
-    <string name="browse_serverNoAccess">Allow local network access to reach the server. Tap to ask again</string>
+    <string name="browse_serverNoAccess">Allow local network access to reach the server</string>
+    <string name="server_allow">Allow</string>
+    <string name="server_refresh">Refresh</string>
+    <string name="server_retry">Try again</string>
+    <string name="server_empty">No books on the server yet</string>
+    <string name="server_working">Updating on the server</string>
+    <string name="server_downloading">%1$s of %2$s</string>
     <string name="browse_serverDownload">Download, %1$s</string>
     <string name="browse_serverUpdate">Update, %1$s</string>
     <string name="browse_serverCurrent">On the shelf</string>
