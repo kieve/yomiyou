@@ -45,7 +45,19 @@ data class BookInfo(
 
 /**
  * A chapter by its place in the book's chapter list, and where in it: the phrase being read in a narrated book, or in
- * a plain one ([span] -1) the block's path from its document's `<body>` (Kavita's form, `//body/p[11]`).
+ * a plain one ([span] -1) the block's path from its document's `<body>` (Kavita's form, `//body/p[11]`). [at]: when
+ * the reader last moved to it, in epoch milliseconds; of it and Kavita's place, the newer wins.
  */
 @Serializable
-data class Position(val chapter: Int, val span: Long, val path: String? = null)
+data class Position(val chapter: Int, val span: Long, val path: String? = null, val at: Long? = null) {
+    fun samePlace(other: Position?): Boolean =
+        other != null && chapter == other.chapter && span == other.span && path == other.path
+
+    /** This place, its time kept from [before] when it's the same place, else now. */
+    fun since(before: Position?, now: Long = System.currentTimeMillis()): Position =
+        copy(at = if (samePlace(before)) before?.at ?: now else now)
+}
+
+/** A place as Kavita keeps it: the spine document's index (its `pageNum`) and a block's path (`bookScrollId`). */
+@Serializable
+data class SpinePlace(val page: Int, val path: String)

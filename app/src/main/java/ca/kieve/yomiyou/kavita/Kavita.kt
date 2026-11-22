@@ -27,8 +27,32 @@ data class KavitaChapter(
     val files: List<KavitaFile> = emptyList(),
 )
 
+/**
+ * A user's place in a chapter: `pageNum` the spine document, `bookScrollId` the block's path, `lastModifiedUtc` when
+ * Kavita saved it (UTC, no zone). A chapter never read comes back with zero IDs and the year 1.
+ */
+@Serializable
+data class KavitaProgress(
+    val volumeId: Int,
+    val chapterId: Int,
+    val pageNum: Int,
+    val seriesId: Int,
+    val libraryId: Int,
+    val bookScrollId: String? = null,
+    val lastModifiedUtc: String? = null,
+) {
+    /** When it was saved, in epoch milliseconds; null for a chapter never read. */
+    val savedAt: Long?
+        get() = lastModifiedUtc?.takeIf { volumeId != 0 }?.let {
+            runCatching { java.time.LocalDateTime.parse(it).toInstant(java.time.ZoneOffset.UTC).toEpochMilli() }.getOrNull()
+        }?.takeIf { it > 0 }
+}
+
 @Serializable
 data class KavitaVolume(val id: Int, val name: String = "", val chapters: List<KavitaChapter> = emptyList())
+
+/** Kavita turned the request down: sending it again won't help. */
+class Rejected(message: String) : IOException(message)
 
 /** Kavita's API at [address] (such as `https://lit.kieve.dev`), as the user whose API key is [key]. */
 class Kavita(address: String, private val key: String) {
@@ -41,6 +65,13 @@ class Kavita(address: String, private val key: String) {
         json.decodeFromString(text(open("/api/series/v2?pageNumber=1&pageSize=0", "{}")))
 
     fun volumes(seriesId: Int): List<KavitaVolume> = json.decodeFromString(get("/api/series/volumes?seriesId=$seriesId"))
+
+    fun progress(chapterId: Int): KavitaProgress = json.decodeFromString(get("/api/reader/get-progress?chapterId=$chapterId"))
+
+    /** Saves a place; Kavita stamps its own time on it. */
+    fun saveProgress(progress: KavitaProgress) {
+        text(open("/api/reader/progress", json.encodeToString(progress.copy(lastModifiedUtc = null))))
+    }
 
     /** A chapter's file, as stored; [read] gets the stream and the length Kavita gave, or -1. */
     fun <T> download(chapterId: Int, read: (InputStream, Long) -> T): T {
@@ -78,6 +109,7 @@ class Kavita(address: String, private val key: String) {
             when (val code = connection.responseCode) {
                 in 200..299 -> return connection
                 401, 403 -> throw IOException("Kavita refused the API key.")
+                in 400..499 -> throw Rejected("Kavita answered $code.")
                 else -> throw IOException("Kavita answered $code.")
             }
         } catch (e: Exception) {
@@ -97,6 +129,9 @@ class Kavita(address: String, private val key: String) {
                 "$address/api/image/chapter-cover?chapterId=${book.chapterId}"
             }
 
-        private val json = Json { ignoreUnknownKeys = true }
+        private val json = Json {
+            ignoreUnknownKeys = true
+            explicitNulls = false
+        }
     }
 }

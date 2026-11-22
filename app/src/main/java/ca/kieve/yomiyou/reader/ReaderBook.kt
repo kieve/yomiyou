@@ -1,5 +1,7 @@
 package ca.kieve.yomiyou.reader
 
+import ca.kieve.yomiyou.book.Position
+import ca.kieve.yomiyou.book.SpinePlace
 import java.io.Closeable
 
 /** What the reader shows, whatever kind of book it is. */
@@ -20,6 +22,12 @@ interface ReaderBook : Closeable {
 
     /** A file the markup links to, by its path in the book. */
     fun resource(path: String): Resource?
+
+    /** [position] as Kavita keeps a place; null when it names none. */
+    fun spinePlace(position: Position): SpinePlace?
+
+    /** Kavita's [place] as a position here; null when the book has no such document. */
+    fun positionAt(place: SpinePlace): Position?
 }
 
 class Resource(val bytes: ByteArray, val mediaType: String)

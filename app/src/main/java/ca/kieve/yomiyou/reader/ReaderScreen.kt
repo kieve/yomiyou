@@ -89,6 +89,12 @@ import ca.kieve.yomiyou.book.EnrichedEpub
 import ca.kieve.yomiyou.book.LibraryBook
 import ca.kieve.yomiyou.book.PlainEpub
 import ca.kieve.yomiyou.book.Position
+import ca.kieve.yomiyou.book.SpinePlace
+import ca.kieve.yomiyou.kavita.KavitaBooks
+import ca.kieve.yomiyou.kavita.KavitaLink
+import android.util.Log
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import ca.kieve.yomiyou.book.VoiceInfo
 import ca.kieve.yomiyou.book.ZipIndex
 import ca.kieve.yomiyou.browse.megabytes
@@ -114,6 +120,7 @@ private sealed interface Opening {
 }
 
 private const val SAVE_DELAY_MS = 1500L
+private const val KAVITA_EVERY_MS = 60_000L
 
 @Composable
 fun ReaderScreen(bookId: String, onBack: () -> Unit) {
@@ -140,6 +147,8 @@ fun ReaderScreen(bookId: String, onBack: () -> Unit) {
 }
 
 private suspend fun open(services: Services, bookId: String): Opening? {
+    // Kavita's place first, if newer: before this opening counts as the book's last.
+    services.kavita.pullBook(bookId)
     val entry = services.library.find(bookId) ?: return null
     // Narrated when it has its narration, else the original as a plain book.
     val narrated = entry.epub
@@ -155,7 +164,7 @@ private suspend fun open(services: Services, bookId: String): Opening? {
         val book = if (narrated != null) EnrichedEpub.open(zip) else PlainEpub.open(zip)
         val saved = entry.info.position
         val start = if (book is EnrichedEpub && saved?.path != null && saved.span < 0) {
-            runCatching { book.placeOf(saved.chapter, saved.path) }.getOrNull()
+            runCatching { book.positionAt(SpinePlace(saved.chapter, saved.path)) }.getOrNull()?.copy(at = saved.at)
         } else {
             saved
         }
@@ -280,15 +289,55 @@ private fun Reader(entry: LibraryBook, book: ReaderBook, saved: Position?, onBac
     LaunchedEffect(chapter, span, path) {
         if (span < 0 && path == null) return@LaunchedEffect
         delay(SAVE_DELAY_MS)
-        services.library.updateInfo(entry) { it.copy(position = Position(chapter, span, path)) }
+        services.library.updateInfo(entry) { it.copy(position = Position(chapter, span, path).since(it.position)) }
     }
     val latest by rememberUpdatedState(Position(chapter, span, path))
+    // A book from Kavita: its place goes there on opening, every minute while it moves, on going to the background and
+    // on leaving (KavitaBooks queues it until the network is there).
+    val link by produceState<KavitaLink?>(null, entry) {
+        value = services.kavita.link(entry)
+        Log.i(KavitaBooks.SYNC, "reader: ${entry.info.title}: " + (value?.let { "Kavita chapter ${it.chapterId}" } ?: "no kavita.json, not kept in step"))
+    }
+    val placed = remember { arrayOf(saved) }
+    fun sendPlace() {
+        val position = latest.takeIf { it.span >= 0 || it.path != null } ?: return
+        val stamped = position.since(placed[0]).also { placed[0] = it }
+        Log.d(KavitaBooks.SYNC, "reader: ${entry.info.title}: place $stamped")
+        link?.let { services.kavita.queue(entry.info.bookId, it, book, stamped) }
+    }
+    LaunchedEffect(link) {
+        if (link == null) return@LaunchedEffect
+        while (true) {
+            sendPlace()
+            delay(KAVITA_EVERY_MS)
+        }
+    }
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { sendPlace() }
+    // Back in the app with the book open: Kavita's place, if newer (the first start is the opening, which asked already).
+    val started = remember { booleanArrayOf(false) }
+    LifecycleEventEffect(Lifecycle.Event.ON_START) {
+        if (started[0]) scope.launch { services.kavita.pullBook(entry.info.bookId) }
+        started[0] = true
+    }
+    LaunchedEffect(Unit) {
+        services.kavita.moved.collect { (id, moved) ->
+            if (id != entry.info.bookId || following || moved.chapter !in book.chapters.indices) return@collect
+            Log.i(KavitaBooks.SYNC, "reader: ${entry.info.title}: to Kavita's place $moved")
+            chapter = moved.chapter
+            span = moved.span
+            path = moved.path
+            placed[0] = moved
+            val current = style ?: return@collect
+            if (ready) page.open(moved.chapter, moved.span.takeIf { it >= 0 }, current, fromServer, moved.path)
+        }
+    }
     DisposableEffect(entry) {
         onDispose {
             val position = latest
             if (position.span >= 0 || position.path != null) {
-                services.scope.launch { services.library.updateInfo(entry) { it.copy(position = position) } }
+                services.scope.launch { services.library.updateInfo(entry) { it.copy(position = position.since(it.position)) } }
             }
+            sendPlace()
         }
     }
 
@@ -388,7 +437,7 @@ private fun Reader(entry: LibraryBook, book: ReaderBook, saved: Position?, onBac
                     state = state,
                     onUpdate = { manifest ->
                         scope.launch {
-                            if (span >= 0) services.library.updateInfo(entry) { it.copy(position = Position(chapter, span)) }
+                            if (span >= 0) services.library.updateInfo(entry) { it.copy(position = Position(chapter, span).since(it.position)) }
                             services.server.download(manifest, book.title)
                         }
                     },

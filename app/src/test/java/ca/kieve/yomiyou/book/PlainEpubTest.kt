@@ -4,6 +4,7 @@ import org.jsoup.Jsoup
 import org.jsoup.parser.Parser
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.security.MessageDigest
@@ -123,5 +124,15 @@ class PlainEpubTest {
         assertTrue(BookFiles.isOriginal("夢.epub"))
         assertFalse(BookFiles.isOriginal("夢.yomiage.epub"))
         assertFalse(BookFiles.isEpub("夢.epub"))
+    }
+
+    @Test
+    fun `its place is Kavita's form as it is`() {
+        open(epub()).use { book ->
+            assertEquals(SpinePlace(1, "//body/p[1]"), book.spinePlace(Position(1, -1, "//body/p[1]")))
+            assertEquals(Position(1, -1, "//body/p[1]"), book.positionAt(SpinePlace(1, "//body/p[1]")))
+            assertNull(book.positionAt(SpinePlace(3, "//body/p[1]")), "no such document")
+            assertNull(book.spinePlace(Position(1, -1)), "no block")
+        }
     }
 }

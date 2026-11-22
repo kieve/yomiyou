@@ -159,6 +159,9 @@ fun KavitaScreen(onBack: () -> Unit, onOpenBook: (String) -> Unit) {
                     val narration = narrations[book.file]
                     val here = shelf.first[book.chapterId] ?: narration?.bookId?.takeIf { it in shelf.second }
                     val state = states[book.chapterId]
+                    if (here != null && book.chapterId !in shelf.first) {
+                        LaunchedEffect(here) { kavita.adopt(here, book) }
+                    }
                     CoverTile(
                         title = book.title,
                         cover = ImageRequest.Builder(context)

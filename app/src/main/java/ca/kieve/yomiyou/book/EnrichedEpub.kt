@@ -66,21 +66,37 @@ class EnrichedEpub private constructor(
     }
 
     /**
-     * A plain copy's place in this book: [spineIndex] and the block's [path] (Kavita's form) become the first phrase in
-     * that block, or the next one after it, and the chapter holding it. The enriched EPUB keeps the original's markup,
-     * so the path names the same block.
+     * Kavita's place in this book: the first phrase in the block its path names, or the next one after it (the
+     * document's first when the path names nothing here), and the chapter holding it. The enriched EPUB keeps the
+     * original's markup, so a path from a plain copy or Kavita names the same block.
      */
     @Synchronized
-    fun placeOf(spineIndex: Int, path: String): Position? {
-        val href = spine.getOrNull(spineIndex) ?: return null
+    override fun positionAt(place: SpinePlace): Position? {
+        val href = spine.getOrNull(place.page) ?: return null
         val body = bodyOf(document(href))?.clone() ?: return null
         PlainEpub.markPlaces(body)
-        val block = PlainEpub.findPlace(body, path) ?: return null
+        val block = PlainEpub.findPlace(body, place.path) ?: body
         val all = body.allElements
-        val phrase = all.drop(all.indexOfFirst { it === block }).firstOrNull { it.hasAttr("data-y") } ?: return null
-        val span = phrase.attr("data-y").toLongOrNull() ?: return null
-        return Position(manifest.chapters.indexOfLast { it.firstSpan <= span }.coerceAtLeast(0), span)
+        val span = all.drop(all.indexOfFirst { it === block }).firstOrNull { it.hasAttr("data-y") }
+            ?.attr("data-y")?.toLongOrNull()
+            // Nothing narrated after it in its document: the next chapter's start.
+            ?: manifest.chapters.firstOrNull { spine.indexOf(it.href) > place.page }?.firstSpan
+            ?: return null
+        return positionOf(span)
     }
+
+    /** A phrase's place as Kavita keeps it: its document's index in the spine, and the path to its block. */
+    @Synchronized
+    override fun spinePlace(position: Position): SpinePlace? {
+        if (position.span < 0) return null
+        val href = manifest.chapters.getOrNull(positionOf(position.span).chapter)?.href ?: return null
+        val body = bodyOf(document(href))?.clone() ?: return null
+        PlainEpub.markPlaces(body)
+        val phrase = body.selectFirst("[data-y=\"${position.span}\"]") ?: return null
+        return SpinePlace(spine.indexOf(href), phrase.closest("[data-x]")?.attr("data-x") ?: "//body")
+    }
+
+    private fun positionOf(span: Long) = Position(manifest.chapters.indexOfLast { it.firstSpan <= span }.coerceAtLeast(0), span)
 
     override fun resource(path: String): Resource? =
         if (zip.has(path)) Resource(zip.read(path), EpubPaths.mediaType(path)) else null

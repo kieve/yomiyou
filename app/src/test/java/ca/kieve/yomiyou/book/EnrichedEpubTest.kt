@@ -166,14 +166,28 @@ class EnrichedEpubTest {
     }
 
     @Test
-    fun `a plain copy's place becomes the first phrase of the same block`() {
+    fun `Kavita's place becomes the first phrase of the same block`() {
         kumoNoIto().use { book ->
             // The text document is the second in the spine: 一's heading, four paragraphs, 二's heading, ...
-            assertEquals(Position(1, 40000), book.placeOf(1, "//body/p[2]"))
-            assertEquals(Position(2, 80000), book.placeOf(1, "//body/p[5]"), "past 二's heading: its chapter")
-            assertEquals(Position(3, 160000), book.placeOf(1, "//body/h4[3]"))
-            assertNull(book.placeOf(1, "//body/p[99]"))
-            assertNull(book.placeOf(7, "//body/p[1]"))
+            assertEquals(Position(1, 40000), book.positionAt(SpinePlace(1, "//body/p[2]")))
+            assertEquals(Position(2, 80000), book.positionAt(SpinePlace(1, "//body/p[5]")), "past 二's heading: its chapter")
+            assertEquals(Position(3, 160000), book.positionAt(SpinePlace(1, "//body/h4[3]")))
+            assertEquals(Position(1, 20000), book.positionAt(SpinePlace(1, "//body/p[99]")), "no such block: the document's start")
+            assertEquals(Position(0, 0), book.positionAt(SpinePlace(0, "//body")))
+            assertNull(book.positionAt(SpinePlace(7, "//body/p[1]")))
+        }
+    }
+
+    @Test
+    fun `a phrase's place in Kavita's form is its block, and back`() {
+        kumoNoIto().use { book ->
+            assertEquals(SpinePlace(1, "//body/p[2]"), book.spinePlace(Position(1, 40003)))
+            assertEquals(SpinePlace(1, "//body/h4[2]"), book.spinePlace(Position(2, 70000)))
+            assertNull(book.spinePlace(Position(1, -1, "//body/p[2]")))
+            for (span in listOf(20000L, 40000L, 80000L, 160000L)) {
+                val position = Position(0, span).let { book.positionAt(book.spinePlace(it)!!)!! }
+                assertEquals(span, position.span)
+            }
         }
     }
 }

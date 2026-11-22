@@ -73,10 +73,11 @@ fun ShelfScreen(onOpenBook: (String) -> Unit) {
     val scope = rememberCoroutineScope()
     val changes by services.library.changes.collectAsState()
     val narrated by services.narration.book.collectAsState()
-    // Also on coming back to the app: a book folder may have been copied in meanwhile.
+    // Also on coming back to the app: a book folder may have been copied in meanwhile, or the place moved in Kavita.
     var resumes by remember { mutableIntStateOf(0) }
     LifecycleResumeEffect(Unit) {
         resumes++
+        services.kavita.pull()
         onPauseOrDispose {}
     }
     val books by produceState<List<ShelfBook>?>(null, changes, resumes) {

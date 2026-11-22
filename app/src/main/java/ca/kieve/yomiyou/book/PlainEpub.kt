@@ -51,6 +51,12 @@ class PlainEpub private constructor(private val zip: ZipIndex, private val pack:
     override fun resource(path: String): Resource? =
         if (zip.has(path)) Resource(zip.read(path), EpubPaths.mediaType(path)) else null
 
+    override fun spinePlace(position: Position): SpinePlace? =
+        position.path?.takeIf { position.chapter in pack.spine.indices }?.let { SpinePlace(position.chapter, it) }
+
+    override fun positionAt(place: SpinePlace): Position? =
+        if (place.page in pack.spine.indices) Position(place.page, -1, place.path) else null
+
     /** The book's cover image, if it names one. */
     fun cover(): Resource? = pack.coverPath?.let(::resource)
 

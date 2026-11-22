@@ -69,7 +69,9 @@
         while (low < high) {
             const middle = (low + high) >> 1;
             const box = spans[middle].getBoundingClientRect();
-            const before = vertical() ? box.left >= bounds.right : box.bottom <= bounds.top;
+            // Less than a pixel showing is off screen: scrolled to a place, the one before it can peek in by a fraction,
+            // and taking that would walk the place back one block at each opening.
+            const before = vertical() ? box.left >= bounds.right - 1 : box.bottom <= bounds.top + 1;
             if (before) {
                 low = middle + 1;
             } else {

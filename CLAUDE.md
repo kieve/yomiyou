@@ -75,7 +75,17 @@ minSdk 26, Java 17, Kotlin DSL and a version catalog. Material and navigation st
   path under the library's folder being yomiage's `file`; `KavitaLink`, a book folder's `kavita.json`), `KavitaBooks`
   (listing, and downloads of originals into the library, the book ID the file's hash), `KavitaScreen` (Browse's
   "Kavita": its book libraries, then one as a shelf, books here checked (by `kavita.json`, or yomiage's path and book
-  ID), "Narration available" where yomiage has a build). `browse/CoverTile` holds the tile both source screens use.
+  ID; one added from files gets its `kavita.json` there), "Narration available" where yomiage has a build). `browse/CoverTile`
+  holds the tile both source screens use. Places keep in step with Kavita for books with a `kavita.json`: a position
+  carries when it last moved (`Position.at`); `ReaderBook.spinePlace` / `positionAt` turn it into Kavita's form
+  (`SpinePlace`: spine index, block path) and back, a narrated book by the phrase's block. The reader queues its place on
+  opening, every minute while it moves, on going to the background and on leaving; `KavitaOutbox`
+  (`files/kavita-outbox.json`) holds one per book, plus the place Kavita last had, and `KavitaSyncWorker` (WorkManager,
+  needs a network) sends them. The shelf pulls Kavita's places as it shows (at most every 20 s), and a book asks for its own as it opens (waiting
+  at most 3 s) and as the app comes back to it, the page moving if Kavita's is newer; the newer place wins,
+  queued ones included, and a newer place here is queued for Kavita. A place saved before places had times dates from
+  the book's last opening. Books here without a link (added from files, or from the yomiage server) are matched to
+  Kavita once a run by yomiage's path for their book ID. Logcat tag `Yomi-KavitaSync` shows each decision.
 - `narration`: `VoiceFile` (a voice zip: its manifest and timings; the audio read where it lies), `VoiceTimeline`
   (the phrase spoken at a moment, where a phrase is spoken), `PlaybackService` (Media3's `MediaSessionService`: playing
   with the screen off, the media notification, the lock screen and the headset), `VoiceDataSource` (segments read out of
