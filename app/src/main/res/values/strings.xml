@@ -24,6 +24,7 @@
     <string name="shelf_cancel">Cancel</string>
     <string name="shelf_deleteTitle">Delete this book?</string>
     <string name="shelf_narrated">Narrated</string>
+    <string name="shelf_menu">Options</string>
 
     <!-- Browse -->
     <string name="browse_epubFiles">EPUB files</string>
@@ -47,6 +48,18 @@
     <string name="browse_serverNotBuilt">Not built yet</string>
     <string name="browse_serverWorking">Updating on the server: %1$s</string>
     <string name="browse_serverDownloading">Downloading %1$s of %2$s</string>
+    <string name="browse_kavita">Kavita</string>
+    <string name="browse_kavitaSummary">Books on %1$s</string>
+    <string name="browse_kavitaUnset">Set its address and API key in Settings</string>
+    <string name="kavita_loading">Asking Kavita</string>
+    <string name="kavita_noLibraries">No book libraries on Kavita</string>
+    <string name="kavita_noBooks">No EPUBs in this library</string>
+    <string name="kavita_narration">Narration available</string>
+    <string name="shelf_narrate">Narrate</string>
+    <string name="shelf_addNarration">Add narration, %1$s</string>
+    <string name="shelf_checking">Asking the server</string>
+    <string name="shelf_narrating">Narrating: %1$s</string>
+    <string name="shelf_notOnServer">Not on the yomiage server</string>
 
     <!-- Activity -->
     <string name="activity_empty">Nothing yet. Imports show here.</string>
@@ -95,6 +108,11 @@
     <string name="settings_serverAddress">Server address</string>
     <string name="settings_serverSave">Save</string>
     <string name="settings_serverCancel">Cancel</string>
+    <string name="settings_kavita">Kavita</string>
+    <string name="settings_kavitaAddress">Kavita address</string>
+    <string name="settings_kavitaKey">API key</string>
+    <string name="settings_kavitaKeySet">Set</string>
+    <string name="settings_kavitaKeyUnset">Not set</string>
     <string name="settings_debug">Debug</string>
     <string name="settings_webnovelScreens">Webnovel screens</string>
     <string name="settings_webnovelScreensSummary">The old library, search and reader</string>

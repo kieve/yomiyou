@@ -81,6 +81,25 @@ class PlainEpub private constructor(private val zip: ZipIndex, private val pack:
             }
         }
 
+        /**
+         * The block [path] names in [body] (marked by [markPlaces]), as the reader page finds one: the block itself, the
+         * block around or first inside the element `id("…")` names, else the first block under the nearest named
+         * ancestor.
+         */
+        internal fun findPlace(body: Element, path: String): Element? {
+            Regex("""^id\("(.+)"\)$""").matchEntire(path)?.let { match ->
+                val element = body.getElementsByAttributeValue("id", match.groupValues[1]).firstOrNull() ?: return null
+                return element.closest("[data-x]") ?: element.selectFirst("[data-x]")
+            }
+            val blocks = body.select("[data-x]")
+            var prefix = path
+            while (prefix.length > "//body".length) {
+                blocks.firstOrNull { it.attr("data-x") == prefix || it.attr("data-x").startsWith("$prefix/") }?.let { return it }
+                prefix = prefix.substringBeforeLast('/')
+            }
+            return null
+        }
+
         /** Kavita's path to [element]: from `//body`, each step its name and its place among same-named siblings. */
         internal fun pathOf(element: Element, body: Element): String {
             val steps = ArrayDeque<String>()

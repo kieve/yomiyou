@@ -69,6 +69,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -108,7 +109,8 @@ import java.io.IOException
 private sealed interface Opening {
     data object Loading : Opening
     data class Failed(val message: String) : Opening
-    class Open(val entry: LibraryBook, val book: ReaderBook) : Opening
+    /** [start]: where to open it, a plain place carried over once its narration was added. */
+    class Open(val entry: LibraryBook, val book: ReaderBook, val start: Position?) : Opening
 }
 
 private const val SAVE_DELAY_MS = 1500L
@@ -132,7 +134,7 @@ fun ReaderScreen(bookId: String, onBack: () -> Unit) {
         is Opening.Failed -> Failure(state.message, onBack)
         is Opening.Open -> {
             DisposableEffect(state.book) { onDispose { state.book.close() } }
-            key(state.book) { Reader(state.entry, state.book, onBack) }
+            key(state.book) { Reader(state.entry, state.book, state.start, onBack) }
         }
     }
 }
@@ -150,7 +152,14 @@ private suspend fun open(services: Services, bookId: String): Opening? {
     }
     return try {
         val zip = ZipIndex.open(access)
-        Opening.Open(entry, if (narrated != null) EnrichedEpub.open(zip) else PlainEpub.open(zip))
+        val book = if (narrated != null) EnrichedEpub.open(zip) else PlainEpub.open(zip)
+        val saved = entry.info.position
+        val start = if (book is EnrichedEpub && saved?.path != null && saved.span < 0) {
+            runCatching { book.placeOf(saved.chapter, saved.path) }.getOrNull()
+        } else {
+            saved
+        }
+        Opening.Open(entry, book, start)
     } catch (e: Exception) {
         access.close()
         Opening.Failed(if (e is BookError) e.message.orEmpty() else e.toString())
@@ -158,7 +167,7 @@ private suspend fun open(services: Services, bookId: String): Opening? {
 }
 
 @Composable
-private fun Reader(entry: LibraryBook, book: ReaderBook, onBack: () -> Unit) {
+private fun Reader(entry: LibraryBook, book: ReaderBook, saved: Position?, onBack: () -> Unit) {
     val context = LocalContext.current
     val services = context.services
     val scope = rememberCoroutineScope()
@@ -175,7 +184,7 @@ private fun Reader(entry: LibraryBook, book: ReaderBook, onBack: () -> Unit) {
     val voice = voices.firstOrNull { here && it.id == narrated?.voice } ?: VoiceChoice.of(voices, remembered)
     val following by rememberUpdatedState(here && playing)
     val start = spoken?.takeIf { here }?.let { Position(it.chapter, it.phrase) }
-        ?: entry.info.position?.takeIf { it.chapter in book.chapters.indices }
+        ?: saved?.takeIf { it.chapter in book.chapters.indices }
     var chapter by rememberSaveable { mutableIntStateOf(start?.chapter ?: 0) }
     var span by rememberSaveable { mutableLongStateOf(start?.span ?: -1L) }
     /** A plain book's place: the block's path (Kavita's form); null in a narrated one. */
@@ -299,6 +308,8 @@ private fun Reader(entry: LibraryBook, book: ReaderBook, onBack: () -> Unit) {
 
     ModalNavigationDrawer(
         drawerState = drawer,
+        // The closed drawer waits past the left edge: unclipped, it slides into view as the book leaves.
+        modifier = Modifier.clipToBounds(),
         gesturesEnabled = drawer.isOpen,
         drawerContent = {
             ModalDrawerSheet {
@@ -622,7 +633,7 @@ private fun ServerLine(state: BookState, onUpdate: (ServerManifest) -> Unit, mod
             stringResource(R.string.browse_serverDownloading, megabytes(state.bytes), megabytes(state.total))
         is BookState.Failed -> state.message
         is BookState.Available -> null
-        BookState.Current, BookState.NotBuilt -> return
+        BookState.Current, BookState.NotBuilt, BookState.NotOnServer -> return
     }
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerHigh,

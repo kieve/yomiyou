@@ -20,8 +20,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -57,6 +60,9 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import ca.kieve.yomiyou.R
 import ca.kieve.yomiyou.home.EmptyMessage
 import ca.kieve.yomiyou.home.services
+import ca.kieve.yomiyou.browse.megabytes
+import ca.kieve.yomiyou.server.BookState
+import ca.kieve.yomiyou.server.ServerManifest
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
 
@@ -78,6 +84,8 @@ fun ShelfScreen(onOpenBook: (String) -> Unit) {
         value = Shelf.order(services.library.books().map { YomiageShelfBook(it, services.library) })
     }
     var deleting by remember { mutableStateOf<ShelfBook?>(null) }
+    val states by services.server.states.collectAsState()
+    var menu by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
         topBar = {
@@ -103,7 +111,35 @@ fun ShelfScreen(onOpenBook: (String) -> Unit) {
             modifier = Modifier.fillMaxSize()
         ) {
             items(shown, key = { it.id }) { book ->
-                Tile(book, onOpen = { onOpenBook(book.id) }, onDelete = { deleting = book })
+                val state = states[book.id]
+                Tile(
+                    book,
+                    state = state,
+                    onOpen = { onOpenBook(book.id) },
+                    onMenu = {
+                        menu = book.id
+                        if (!book.narrated) scope.launch { services.server.check(book.id) }
+                    },
+                ) {
+                    BookMenu(
+                        open = menu == book.id,
+                        narrated = book.narrated,
+                        state = state,
+                        onDismiss = { menu = null },
+                        onNarrate = {
+                            menu = null
+                            services.server.narrate(book.id, book.title)
+                        },
+                        onAddNarration = {
+                            menu = null
+                            services.server.download(it, book.title)
+                        },
+                        onDelete = {
+                            menu = null
+                            deleting = book
+                        },
+                    )
+                }
             }
         }
     }
@@ -130,14 +166,20 @@ fun ShelfScreen(onOpenBook: (String) -> Unit) {
 }
 
 @Composable
-private fun Tile(book: ShelfBook, onOpen: () -> Unit, onDelete: () -> Unit) {
+private fun Tile(
+    book: ShelfBook,
+    state: BookState?,
+    onOpen: () -> Unit,
+    onMenu: () -> Unit,
+    menu: @Composable () -> Unit,
+) {
     val description = book.title
     Column(
         modifier = Modifier
             .combinedClickable(
                 onClickLabel = stringResource(R.string.shelf_open),
-                onLongClickLabel = stringResource(R.string.shelf_delete),
-                onLongClick = onDelete,
+                onLongClickLabel = stringResource(R.string.shelf_menu),
+                onLongClick = onMenu,
                 onClick = onOpen
             )
             .semantics(mergeDescendants = true) { contentDescription = description }
@@ -185,6 +227,14 @@ private fun Tile(book: ShelfBook, onOpen: () -> Unit, onDelete: () -> Unit) {
             book.progress?.let {
                 ProgressRing(it, Modifier.align(Alignment.BottomEnd).padding(6.dp).size(40.dp))
             }
+            val bar = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(6.dp)
+            when (state) {
+                is BookState.Working -> LinearProgressIndicator(modifier = bar)
+                is BookState.Downloading ->
+                    LinearProgressIndicator(progress = { if (state.total > 0) state.bytes.toFloat() / state.total else 0f }, modifier = bar)
+                else -> {}
+            }
+            menu()
         }
         Text(
             book.title,
@@ -218,5 +268,43 @@ private fun ProgressRing(percent: Int, modifier: Modifier) {
             )
         }
         Text("$percent%", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+/** A book's menu: its narration from the server (asked for, under way, or ready to add) when it has none, and Delete. */
+@Composable
+private fun BookMenu(
+    open: Boolean,
+    narrated: Boolean,
+    state: BookState?,
+    onDismiss: () -> Unit,
+    onNarrate: () -> Unit,
+    onAddNarration: (ServerManifest) -> Unit,
+    onDelete: () -> Unit,
+) {
+    DropdownMenu(expanded = open, onDismissRequest = onDismiss) {
+        @Composable
+        fun note(text: String) = DropdownMenuItem(text = { Text(text) }, onClick = {}, enabled = false)
+
+        if (!narrated) {
+            when (state) {
+                null -> note(stringResource(R.string.shelf_checking))
+                BookState.NotBuilt -> DropdownMenuItem(text = { Text(stringResource(R.string.shelf_narrate)) }, onClick = onNarrate)
+                BookState.NotOnServer -> note(stringResource(R.string.shelf_notOnServer))
+                is BookState.Working -> note(stringResource(R.string.shelf_narrating, state.stage))
+                is BookState.Available -> DropdownMenuItem(
+                    text = { Text(stringResource(R.string.shelf_addNarration, megabytes(state.bytes))) },
+                    onClick = { onAddNarration(state.manifest) }
+                )
+                is BookState.Downloading ->
+                    note(stringResource(R.string.browse_serverDownloading, megabytes(state.bytes), megabytes(state.total)))
+                is BookState.Failed -> {
+                    note(state.message)
+                    DropdownMenuItem(text = { Text(stringResource(R.string.shelf_narrate)) }, onClick = onNarrate)
+                }
+                BookState.Current -> {}
+            }
+        }
+        DropdownMenuItem(text = { Text(stringResource(R.string.shelf_delete)) }, onClick = onDelete)
     }
 }

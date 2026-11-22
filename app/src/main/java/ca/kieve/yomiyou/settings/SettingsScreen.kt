@@ -28,6 +28,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import ca.kieve.yomiyou.R
 import ca.kieve.yomiyou.YomiActivity
@@ -45,16 +47,34 @@ fun SettingsScreen() {
     val chooseFolder = rememberLibraryPicker()
     val address by services.server.address.collectAsState(initial = "")
     var editingAddress by remember { mutableStateOf(false) }
+    val kavitaAddress by services.kavita.address.collectAsState(initial = "")
+    val kavitaKey by services.kavita.key.collectAsState(initial = "")
+    var editingKavita by remember { mutableStateOf<KavitaField?>(null) }
     val scope = rememberCoroutineScope()
 
     if (editingAddress) {
-        AddressDialog(
-            address = address,
+        TextDialog(
+            title = stringResource(R.string.settings_serverAddress),
+            value = address,
             onSave = {
                 editingAddress = false
                 scope.launch { services.server.setAddress(it) }
             },
             onDismiss = { editingAddress = false },
+        )
+    }
+    editingKavita?.let { field ->
+        TextDialog(
+            title = stringResource(if (field == KavitaField.Address) R.string.settings_kavitaAddress else R.string.settings_kavitaKey),
+            value = if (field == KavitaField.Address) kavitaAddress else "",
+            secret = field == KavitaField.Key,
+            onSave = {
+                editingKavita = null
+                scope.launch {
+                    if (field == KavitaField.Address) services.kavita.setAddress(it) else services.kavita.setKey(it)
+                }
+            },
+            onDismiss = { editingKavita = null },
         )
     }
 
@@ -82,6 +102,25 @@ fun SettingsScreen() {
                     headlineContent = { Text(stringResource(R.string.settings_serverAddress)) },
                     supportingContent = { Text(address) },
                     modifier = Modifier.clickable { editingAddress = true }
+                )
+            }
+            item {
+                SectionHeader(stringResource(R.string.settings_kavita))
+            }
+            item {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_kavitaAddress)) },
+                    supportingContent = { Text(kavitaAddress) },
+                    modifier = Modifier.clickable { editingKavita = KavitaField.Address }
+                )
+            }
+            item {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_kavitaKey)) },
+                    supportingContent = {
+                        Text(stringResource(if (kavitaKey.isEmpty()) R.string.settings_kavitaKeyUnset else R.string.settings_kavitaKeySet))
+                    },
+                    modifier = Modifier.clickable { editingKavita = KavitaField.Key }
                 )
             }
             item {
@@ -125,18 +164,28 @@ fun SettingsScreen() {
     }
 }
 
+private enum class KavitaField { Address, Key }
+
+/** One setting typed in: an address, or with [secret] a key, hidden as it's typed and never shown back. */
 @Composable
-private fun AddressDialog(address: String, onSave: (String) -> Unit, onDismiss: () -> Unit) {
-    var text by remember { mutableStateOf(address) }
+private fun TextDialog(
+    title: String,
+    value: String,
+    onSave: (String) -> Unit,
+    onDismiss: () -> Unit,
+    secret: Boolean = false,
+) {
+    var text by remember { mutableStateOf(value) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.settings_serverAddress)) },
+        title = { Text(title) },
         text = {
             OutlinedTextField(
                 value = text,
                 onValueChange = { text = it },
                 singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                keyboardOptions = KeyboardOptions(keyboardType = if (secret) KeyboardType.Password else KeyboardType.Uri),
+                visualTransformation = if (secret) PasswordVisualTransformation() else VisualTransformation.None,
             )
         },
         confirmButton = {

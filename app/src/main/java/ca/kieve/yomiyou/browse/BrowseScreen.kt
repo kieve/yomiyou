@@ -18,35 +18,37 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.navigation3.runtime.NavKey
 import ca.kieve.yomiyou.R
+import ca.kieve.yomiyou.kavita.KavitaSource
 import ca.kieve.yomiyou.home.services
 
 /** A way to add books, listed in Browse. */
 interface BrowseSource {
-    /** [onStarted]: work began that the Activity tab follows; [onOpenServer]: the server's books, a screen of their own. */
+    /** [onStarted]: work began that the Activity tab follows; [onOpen]: a screen of the source's own. */
     @Composable
-    fun Item(onStarted: () -> Unit, onOpenServer: () -> Unit)
+    fun Item(onStarted: () -> Unit, onOpen: (NavKey) -> Unit)
 }
 
-private val sources: List<BrowseSource> = listOf(ServerSource, EpubFiles, DictionaryFile)
+private val sources: List<BrowseSource> = listOf(ServerSource, KavitaSource, EpubFiles, DictionaryFile)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BrowseScreen(onStarted: () -> Unit, onOpenServer: () -> Unit) {
+fun BrowseScreen(onStarted: () -> Unit, onOpen: (NavKey) -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(title = { Text(stringResource(R.string.home_browse)) })
         }
     ) { innerPadding ->
         LazyColumn(contentPadding = innerPadding) {
-            items(sources) { it.Item(onStarted, onOpenServer) }
+            items(sources) { it.Item(onStarted, onOpen) }
         }
     }
 }
 
 private object EpubFiles : BrowseSource {
     @Composable
-    override fun Item(onStarted: () -> Unit, onOpenServer: () -> Unit) {
+    override fun Item(onStarted: () -> Unit, onOpen: (NavKey) -> Unit) {
         val importer = LocalContext.current.services.importer
         val busy by importer.busy.collectAsState()
         val pick = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) {
@@ -64,7 +66,7 @@ private object EpubFiles : BrowseSource {
 
 private object DictionaryFile : BrowseSource {
     @Composable
-    override fun Item(onStarted: () -> Unit, onOpenServer: () -> Unit) {
+    override fun Item(onStarted: () -> Unit, onOpen: (NavKey) -> Unit) {
         val dictionary = LocalContext.current.services.dictionary
         val busy by dictionary.busy.collectAsState()
         val pick = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->

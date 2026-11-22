@@ -19,6 +19,8 @@ data class ServerBook(
     /** The current build's version; null when the book hasn't been built. */
     val version: String? = null,
     val update: UpdateStatus = UpdateStatus("none"),
+    /** Its path under the server's books folder, Kavita's library folder too. */
+    val file: String? = null,
 )
 
 @Serializable
@@ -63,6 +65,9 @@ internal val json = Json {
 fun sha256(bytes: ByteArray): String =
     MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
 
+/** The server has no such book, or no build of it. */
+class NotFound(message: String) : IOException(message)
+
 /** The yomiage server at [address] (such as `https://yomiage.kieve.dev`): its books, files and corrections. */
 class YomiageServer(address: String) {
     private val base = address.trim().trimEnd('/')
@@ -89,6 +94,10 @@ class YomiageServer(address: String) {
             request("/api/books/$bookId/corrections", json.encodeToString(correction)).decodeToString()
         ).update
 
+    /** Asks the server to narrate a book: clips for every voice, encoding, the build. */
+    fun narrate(bookId: String): UpdateStatus =
+        json.decodeFromString(request("/api/books/$bookId/update", "{}").decodeToString())
+
     fun status(bookId: String): UpdateStatus = json.decodeFromString(get("/api/books/$bookId/update").decodeToString())
 
     private fun get(path: String): ByteArray = request(path, null)
@@ -109,6 +118,7 @@ class YomiageServer(address: String) {
             if (code !in 200..299) {
                 val text = connection.errorStream?.use { it.readBytes().decodeToString() }.orEmpty()
                 val message = runCatching { json.decodeFromString<Failure>(text).error }.getOrNull()
+                if (code == 404) throw NotFound(message ?: "Not on the server.")
                 throw IOException(message ?: "The server answered $code.")
             }
             return connection.inputStream.use { it.readBytes() }

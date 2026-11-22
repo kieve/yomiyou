@@ -65,6 +65,23 @@ class EnrichedEpub private constructor(
         return wrapper.outerHtml()
     }
 
+    /**
+     * A plain copy's place in this book: [spineIndex] and the block's [path] (Kavita's form) become the first phrase in
+     * that block, or the next one after it, and the chapter holding it. The enriched EPUB keeps the original's markup,
+     * so the path names the same block.
+     */
+    @Synchronized
+    fun placeOf(spineIndex: Int, path: String): Position? {
+        val href = spine.getOrNull(spineIndex) ?: return null
+        val body = bodyOf(document(href))?.clone() ?: return null
+        PlainEpub.markPlaces(body)
+        val block = PlainEpub.findPlace(body, path) ?: return null
+        val all = body.allElements
+        val phrase = all.drop(all.indexOfFirst { it === block }).firstOrNull { it.hasAttr("data-y") } ?: return null
+        val span = phrase.attr("data-y").toLongOrNull() ?: return null
+        return Position(manifest.chapters.indexOfLast { it.firstSpan <= span }.coerceAtLeast(0), span)
+    }
+
     override fun resource(path: String): Resource? =
         if (zip.has(path)) Resource(zip.read(path), EpubPaths.mediaType(path)) else null
 

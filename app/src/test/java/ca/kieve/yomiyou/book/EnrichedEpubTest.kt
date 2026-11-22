@@ -164,4 +164,16 @@ class EnrichedEpubTest {
             assertThrows(BookError::class.java) { epub(container, opf, newer) }.message
         )
     }
+
+    @Test
+    fun `a plain copy's place becomes the first phrase of the same block`() {
+        kumoNoIto().use { book ->
+            // The text document is the second in the spine: 一's heading, four paragraphs, 二's heading, ...
+            assertEquals(Position(1, 40000), book.placeOf(1, "//body/p[2]"))
+            assertEquals(Position(2, 80000), book.placeOf(1, "//body/p[5]"), "past 二's heading: its chapter")
+            assertEquals(Position(3, 160000), book.placeOf(1, "//body/h4[3]"))
+            assertNull(book.placeOf(1, "//body/p[99]"))
+            assertNull(book.placeOf(7, "//body/p[1]"))
+        }
+    }
 }

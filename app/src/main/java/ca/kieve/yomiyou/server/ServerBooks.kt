@@ -29,11 +29,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import java.io.FileNotFoundException
 
 /** Where a book stands against the server. */
 sealed interface BookState {
     data object NotBuilt : BookState
+
+    /** The server doesn't have it: a book from elsewhere. */
+    data object NotOnServer : BookState
 
     /** The server is updating it (after a correction). */
     data class Working(val stage: String) : BookState
@@ -77,6 +79,9 @@ class ServerBooks(
     private val downloading = Mutex()
     private val following = HashMap<String, Job>()
 
+    /** Books narrated at the reader's ask, by title: their narration is added once the server has built it. */
+    private val adding = java.util.concurrent.ConcurrentHashMap<String, String>()
+
     suspend fun setAddress(address: String) {
         store.edit { it[ADDRESS] = address.trim().trimEnd('/') }
         refresh()
@@ -106,15 +111,16 @@ class ServerBooks(
         val state = runCatching {
             withContext(Dispatchers.IO) {
                 val server = server()
-                val status = server.status(bookId)
+                val status = try {
+                    server.status(bookId)
+                } catch (e: NotFound) {
+                    return@withContext BookState.NotOnServer
+                }
                 if (status.running) return@withContext BookState.Working(status.stage)
                 val manifest = try {
                     server.manifest(bookId)
-                } catch (e: java.io.IOException) {
-                    if (e is FileNotFoundException || e.message?.contains("no build") == true) {
-                        return@withContext BookState.NotBuilt
-                    }
-                    throw e
+                } catch (e: NotFound) {
+                    return@withContext BookState.NotBuilt
                 }
                 val here = library.find(bookId)
                 val before = stored(here)
@@ -128,6 +134,8 @@ class ServerBooks(
         }.getOrElse { BookState.Failed(it.message ?: it.toString()) }
         set(bookId, state)
         if (state is BookState.Working) follow(bookId)
+        if (state is BookState.Available) adding.remove(bookId)?.let { download(state.manifest, it) }
+        if (state is BookState.Failed) adding.remove(bookId)
     }
 
     private fun follow(bookId: String) {
@@ -147,6 +155,20 @@ class ServerBooks(
             runCatching { withContext(Dispatchers.IO) { server().correct(bookId, correction) } }
                 .onSuccess { check(bookId) }
                 .onFailure { set(bookId, BookState.Failed(it.message ?: it.toString())) }
+        }
+    }
+
+    /** Asks the server to narrate a book, follows it, and adds the narration to the library once it's built. */
+    fun narrate(bookId: String, title: String) {
+        adding[bookId] = title
+        set(bookId, BookState.Working("queued"))
+        scope.launch {
+            runCatching { withContext(Dispatchers.IO) { server().narrate(bookId) } }
+                .onSuccess { check(bookId) }
+                .onFailure {
+                    adding.remove(bookId)
+                    set(bookId, BookState.Failed(it.message ?: it.toString()))
+                }
         }
     }
 

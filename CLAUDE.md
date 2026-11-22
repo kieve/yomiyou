@@ -33,7 +33,7 @@ minSdk 26, Java 17, Kotlin DSL and a version catalog. Material and navigation st
   stack: the tabs at the bottom, the reader over them), `TabsScreen` (Shelf, Browse and Settings in
   `NavigationSuiteScaffold`: a bottom bar on a narrow screen, a rail on a wide one), `Services` (the new screens'
   app-wide objects).
-- `shelf`: `ShelfScreen` (covers in a grid, the latest opened first; a long press deletes a book), `ShelfBook` (a book on
+- `shelf`: `ShelfScreen` (covers in a grid, the latest opened first; a long press opens its menu: Narrate, a narration's progress, or "Add narration" (the server's build downloaded into the same folder, the plain place carried to its phrase by `EnrichedEpub.placeOf`) for a book without one, and Delete), `ShelfBook` (a book on
   the shelf, whatever its kind; `YomiageShelfBook` for the library's). `browse`: `BrowseScreen` (its `BrowseSource`s: EPUB files
   from the system picker, and a Yomitan dictionary), `Importer` (copies picked files into the library, reporting to the
   activity log and a toast). `activity`: `ActivityLog` (work and its results, newest first, kept in the app's files; the
@@ -70,6 +70,12 @@ minSdk 26, Java 17, Kotlin DSL and a version catalog. Material and navigation st
   MB", reopening the book where it was once downloaded. Android 17 blocks LAN connections for apps targeting it:
   `LocalNetwork` asks for `ACCESS_LOCAL_NETWORK` (Android shows it as "nearby devices") before the server is reached,
   and once refused, a tap opens the app's settings.
+- `kavita`: Kavita (address and API key in Settings, kept in the app's preferences). `Kavita` (its API with `x-api-key`:
+  libraries, series, volumes, a chapter's file, covers), `KavitaCatalog` (a book library's EPUBs, one book per file, its
+  path under the library's folder being yomiage's `file`; `KavitaLink`, a book folder's `kavita.json`), `KavitaBooks`
+  (listing, and downloads of originals into the library, the book ID the file's hash), `KavitaScreen` (Browse's
+  "Kavita": its book libraries, then one as a shelf, books here checked (by `kavita.json`, or yomiage's path and book
+  ID), "Narration available" where yomiage has a build). `browse/CoverTile` holds the tile both source screens use.
 - `narration`: `VoiceFile` (a voice zip: its manifest and timings; the audio read where it lies), `VoiceTimeline`
   (the phrase spoken at a moment, where a phrase is spoken), `PlaybackService` (Media3's `MediaSessionService`: playing
   with the screen off, the media notification, the lock screen and the headset), `VoiceDataSource` (segments read out of

@@ -1,5 +1,6 @@
 package ca.kieve.yomiyou.home
 
+import androidx.navigation3.runtime.NavKey
 import androidx.activity.compose.BackHandler
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
@@ -35,7 +36,7 @@ enum class Tab(@StringRes val label: Int, @DrawableRes val icon: Int, @DrawableR
 }
 
 @Composable
-fun TabsScreen(onOpenBook: (String) -> Unit, onOpenServer: () -> Unit) {
+fun TabsScreen(onOpenBook: (String) -> Unit, onOpen: (NavKey) -> Unit) {
     var current by rememberSaveable { mutableStateOf(Tab.Shelf) }
     val tabStates = rememberSaveableStateHolder()
 
@@ -65,7 +66,7 @@ fun TabsScreen(onOpenBook: (String) -> Unit, onOpenServer: () -> Unit) {
             tabStates.SaveableStateProvider(current.name) {
                 when (current) {
                     Tab.Shelf -> ShelfScreen(onOpenBook)
-                    Tab.Browse -> BrowseScreen(onStarted = { current = Tab.Activity }, onOpenServer = onOpenServer)
+                    Tab.Browse -> BrowseScreen(onStarted = { current = Tab.Activity }, onOpen = onOpen)
                     Tab.Activity -> ActivityScreen()
                     Tab.Settings -> SettingsScreen()
                 }
