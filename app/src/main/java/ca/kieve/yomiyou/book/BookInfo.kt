@@ -43,6 +43,9 @@ data class BookInfo(
     }
 }
 
-/** A chapter by its place in the book's chapter list, and the phrase being read. */
+/**
+ * A chapter by its place in the book's chapter list, and where in it: the phrase being read in a narrated book, or in
+ * a plain one ([span] -1) the block's path from its document's `<body>` (Kavita's form, `//body/p[11]`).
+ */
 @Serializable
-data class Position(val chapter: Int, val span: Long)
+data class Position(val chapter: Int, val span: Long, val path: String? = null)

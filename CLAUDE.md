@@ -40,12 +40,16 @@ minSdk 26, Java 17, Kotlin DSL and a version catalog. Material and navigation st
   latest 100) and `ActivityScreen` (the tab). `settings`: Settings
   → Debug starts `YomiActivity`.
 - `book`: `ZipIndex` (a zip's entries read by position, zip64 included), `EnrichedEpub` (an enriched EPUB and its
-  `yomiage.json`; chapters cut as the web reader's `book.ts` cuts them), `Library` (the folder the user chose, through
+  `yomiage.json`; chapters cut as the web reader's `book.ts` cuts them), `PlainEpub` (an EPUB without narration, as the
+  publisher made it: a chapter per spine document, labelled from the nav or NCX; each leaf block marked `data-x` with
+  its path from the body, `//body/p[9]`, Kavita's form, which the position keeps as `Position.path`), `Package` (the
+  OPF: spine, writing mode, cover, title, author, table of contents), `Library` (the folder the user chose, through
   the storage framework: a folder per book, named by `FolderNames`, with its `book.json`; folders copied in by hand,
   and voice files added to one, are picked up as it reads the folder), `BookFiles` (an EPUB from a voice file, what
-  picked files make, the names in a book folder), `VoiceManifest` (`voice.json`).
+  picked files make (a plain EPUB is a book of its own, its ID the file's hash, kept as `<title>.epub`), the names
+  in a book folder), `VoiceManifest` (`voice.json`).
 - `reader`: `ReaderBook` (what the reader shows, whatever the kind of book), `ReaderScreen` (the book full screen, system
-  bars hidden; a single tap jumps the narration to a phrase, a double tap brings up the controls (play, speed, the
+  bars hidden; a single tap jumps the narration to a phrase, a double tap brings up the controls (play and speed for a narrated book, the
   chapter drawer, the reader options), a hold looks a word up and pauses the narration, Back closes the lookup), `ReaderPage` (the WebView, with Android's `Magnifier` on the selection edge a lookup handle drags: left of it for vertical text, away from a right hand, right at the screen's left edge, above it for horizontal; its
   page is `assets/reader/`, served with the book's files by a `WebViewAssetLoader`: the whole book as one scroll, five
   chapters loaded at a time around the reader; it answers the lookup's dictionary queries), `ReadingStyle` (app-wide, as CSS variables on the page).

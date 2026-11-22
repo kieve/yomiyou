@@ -29,6 +29,9 @@ data class LibraryBook(val folder: Uri, val info: BookInfo, val files: Map<Strin
 
     val epub: Uri? get() = files.entries.firstOrNull { BookFiles.isEpub(it.key) }?.value
 
+    /** The original EPUB, without narration (a book from Kavita, or one added from files). */
+    val original: Uri? get() = files.entries.firstOrNull { BookFiles.isOriginal(it.key) }?.value
+
     fun voice(id: String): Uri? = files.entries.firstOrNull { BookFiles.voiceOf(it.key) == id }?.value
 
     val cover: Uri? get() = files.entries.firstOrNull { BookFiles.isCover(it.key) }?.value
@@ -279,8 +282,15 @@ class Library(private val context: Context, private val store: DataStore<Prefere
 
     private fun withCover(book: LibraryBook): LibraryBook {
         if (book.cover != null || book.info.bookId in coverless) return book
-        val epub = book.epub ?: return book
-        val cover = runCatching { ZipIndex.open(open(epub)).use { EnrichedEpub.open(it).cover() } }.getOrNull()
+        val cover = runCatching {
+            val epub = book.epub
+            val original = book.original
+            when {
+                epub != null -> ZipIndex.open(open(epub)).use { EnrichedEpub.open(it).cover() }
+                original != null -> ZipIndex.open(open(original)).use { PlainEpub.open(it).cover() }
+                else -> null
+            }
+        }.getOrNull()
         if (cover == null) {
             coverless += book.info.bookId
             return book

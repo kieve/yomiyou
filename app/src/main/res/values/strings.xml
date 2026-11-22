@@ -27,7 +27,7 @@
 
     <!-- Browse -->
     <string name="browse_epubFiles">EPUB files</string>
-    <string name="browse_epubFilesSummary">An enriched EPUB and its voice files</string>
+    <string name="browse_epubFilesSummary">EPUBs, and the voice files of narrated ones</string>
     <string name="browse_busy">Importing: see Activity</string>
     <string name="browse_dictionary">Dictionary</string>
     <string name="browse_dictionarySummary">A Yomitan dictionary, such as JMdict or JMnedict</string>

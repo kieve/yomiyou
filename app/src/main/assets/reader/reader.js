@@ -79,12 +79,38 @@
         return spans[low] ?? null;
     };
 
-    const report = (span) => {
-        const number = Number(span?.dataset.y);
-        const section = span?.closest("section");
-        if (Number.isInteger(number) && section) {
-            post({ type: "position", chapter: Number(section.dataset.chapter), span: number });
+    /** What marks a place: a phrase in a narrated book, a block (its path from its document's body) in a plain one. */
+    const places = () => (book?.plain ? "[data-x]" : "[data-y]");
+
+    const report = (place) => {
+        const section = place?.closest("section");
+        if (!section) return;
+        const chapter = Number(section.dataset.chapter);
+        if (book?.plain) {
+            if (place.dataset.x) post({ type: "position", chapter, path: place.dataset.x });
+            return;
         }
+        const number = Number(place.dataset.y);
+        if (Number.isInteger(number)) post({ type: "position", chapter, span: number });
+    };
+
+    /**
+     * The block a path names in [section]: the block itself, the first block inside the element it names (a container,
+     * or `id("…")` as Kavita writes one), else the nearest named block around it.
+     */
+    const findPlace = (section, path) => {
+        if (!path) return null;
+        const blocks = [...section.querySelectorAll("[data-x]")];
+        const id = /^id\("(.+)"\)$/.exec(path);
+        if (id) {
+            const element = [...section.querySelectorAll("[id]")].find((each) => each.id === id[1]);
+            return element ? (element.closest("[data-x]") ?? element.querySelector("[data-x]")) : null;
+        }
+        for (let prefix = path; prefix.length > "//body".length; prefix = prefix.slice(0, prefix.lastIndexOf("/"))) {
+            const found = blocks.find((each) => each.dataset.x === prefix || each.dataset.x.startsWith(prefix + "/"));
+            if (found) return found;
+        }
+        return null;
     };
 
     /** Content outside the view, before and after it, in pixels. */
@@ -150,7 +176,7 @@
         for (const node of [...parsed.documentElement.childNodes]) {
             section.append(document.importNode(node, true));
         }
-        const first = section.querySelector("[data-y]")?.closest(BLOCK);
+        const first = section.querySelector(places())?.closest(BLOCK);
         if (first && first.textContent.trim() === title) {
             first.classList.add("heading");
         }
@@ -181,18 +207,20 @@
 
     window.reader = {
         /**
-         * @param start {vertical, count, chapter, span, style, dictionary, server}; span: a phrase to show, else the
-         *   chapter's start; server: the book came from the yomiage server, so a reading can be fixed
+         * @param start {vertical, plain, count, chapter, span, path, style, dictionary, server}; span: a phrase to show,
+         *   else the chapter's start; plain: a book without narration, its places blocks (path: the one to show);
+         *   server: the book came from the yomiage server, so a reading can be fixed
          */
         open(start) {
             book = {
                 vertical: start.vertical,
+                plain: start.plain === true,
                 server: start.server === true,
                 count: start.count,
                 lo: start.chapter,
                 hi: start.chapter - 1,
                 pending: null,
-                target: { span: start.span },
+                target: { span: start.span, path: start.path ?? null },
             };
             text.replaceChildren();
             spans = [];
@@ -237,14 +265,16 @@
             } else {
                 return;
             }
-            spans = text.querySelectorAll("[data-y]");
+            spans = text.querySelectorAll(places());
             if (book.target) {
-                const span = book.target.span;
+                const { span, path } = book.target;
                 book.target = null;
-                const at = span === null ? null : text.querySelector(`[data-y="${span}"]`);
+                const at = book.plain
+                    ? findPlace(section, path)
+                    : span === null ? null : text.querySelector(`[data-y="${span}"]`);
                 // At the start, not the center: the first phrase on screen is what's kept, so the place holds still.
                 (at ?? section).scrollIntoView({ block: "start", inline: "start" });
-                report(at ?? section.querySelector("[data-y]"));
+                report(at ?? section.querySelector(places()));
             } else {
                 restore(kept);
             }
@@ -262,14 +292,14 @@
             const changed = spoken?.phrase !== phrase;
             spoken = { phrase, chapter };
             if (book && (chapter < book.lo || chapter > book.hi) && book.target === null) {
-                reader.open({ vertical: book.vertical, count: book.count, chapter, span: phrase });
+                reader.open({ vertical: book.vertical, plain: book.plain, count: book.count, chapter, span: phrase });
             } else if (changed) {
                 applyLight(true);
             }
         },
 
         jump(chapter) {
-            reader.open({ vertical: book.vertical, count: book.count, chapter, span: null });
+            reader.open({ vertical: book.vertical, plain: book.plain, count: book.count, chapter, span: null });
         },
 
         /** Whether holding a word looks it up. */

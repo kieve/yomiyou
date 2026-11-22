@@ -11,6 +11,7 @@ import ca.kieve.yomiyou.book.BookFiles
 import ca.kieve.yomiyou.book.BookInfo
 import ca.kieve.yomiyou.book.EnrichedEpub
 import ca.kieve.yomiyou.book.Library
+import ca.kieve.yomiyou.book.PlainEpub
 import ca.kieve.yomiyou.book.ZipIndex
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -76,9 +77,10 @@ class Importer(
             }
             val shelf = library.books().associateBy { it.info.bookId }
             val plan = BookFiles.plan(found, shelf.mapValues { it.value.info })
-            titles += plan.books.map { it.epub.manifest.title } + plan.moreVoices.map { shelf.getValue(it.bookId).info.title }
+            titles += plan.books.map { it.epub.manifest.title } + plan.plain.map { it.title } +
+                plan.moreVoices.map { shelf.getValue(it.bookId).info.title }
             if (titles.isNotEmpty()) log.retitle(id, titles.joinToString())
-            val copied = plan.books.flatMap { listOf(it.epub) + it.voices } + plan.moreVoices.flatMap { it.voices }
+            val copied = plan.books.flatMap { listOf(it.epub) + it.voices } + plan.plain + plan.moreVoices.flatMap { it.voices }
             val total = copied.sumOf { sources.getValue(it).size }.coerceAtLeast(1)
             var done = 0L
             suspend fun copy(file: BookFiles.Found, folder: Uri, name: String, title: String): Uri {
@@ -114,6 +116,21 @@ class Importer(
                 } catch (e: Exception) {
                     runCatching { library.delete(folder) }
                     problems += "${manifest.title}: ${e.message ?: e}"
+                }
+            }
+            for (plain in plan.plain) {
+                val folder = library.createFolder(plain.title)
+                try {
+                    val epub = copy(plain, folder, BookFiles.original(plain.title), plain.title)
+                    runCatching { ZipIndex.open(library.open(epub)).use { PlainEpub.open(it).cover() } }.getOrNull()?.let {
+                        library.write(folder, BookFiles.cover(plain.title, it.mediaType), it.bytes.inputStream())
+                    }
+                    val info = BookInfo(bookId = plain.bookId, title = plain.title, author = plain.author)
+                    library.writeInfo(folder, info.copy(lastOpened = System.currentTimeMillis()))
+                    added += plain.title to context.getString(R.string.activity_addedNovel)
+                } catch (e: Exception) {
+                    runCatching { library.delete(folder) }
+                    problems += "${plain.title}: ${e.message ?: e}"
                 }
             }
             for (more in plan.moreVoices) {

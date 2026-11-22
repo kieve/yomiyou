@@ -9,6 +9,9 @@ interface ReaderBook : Closeable {
     /** Written top to bottom, lines right to left (tategaki). */
     val vertical: Boolean
 
+    /** Without narration: its places are blocks by path, not phrases (Kavita's form). */
+    val plain: Boolean get() = false
+
     /** Each chapter's label, in order. */
     val chapters: List<String>
 

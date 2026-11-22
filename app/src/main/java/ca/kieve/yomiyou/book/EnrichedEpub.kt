@@ -52,7 +52,7 @@ class EnrichedEpub private constructor(
             val document = document(href)
             namespaces.putAll(namespacesOf(document))
             val body = bodyOf(document) ?: continue
-            wrapper.appendChildren(prepared(body.childNodes().map { it.clone() }, href))
+            wrapper.appendChildren(prepared(zip, body.childNodes().map { it.clone() }, href))
         }
         val document = document(chapter.href)
         namespaces.putAll(namespacesOf(document))
@@ -60,7 +60,7 @@ class EnrichedEpub private constructor(
         val start = if (chapterHrefs.getOrNull(index - 1) == chapter.href) blockOf(body, chapter.firstSpan) else null
         val next = manifest.chapters.getOrNull(index + 1)
         val end = if (next?.href == chapter.href) blockOf(body, next.firstSpan) else null
-        wrapper.appendChildren(prepared(cut(body, start, end), chapter.href))
+        wrapper.appendChildren(prepared(zip, cut(body, start, end), chapter.href))
         namespaces.forEach { (name, uri) -> wrapper.attr(name, uri) }
         return wrapper.outerHtml()
     }
@@ -79,33 +79,12 @@ class EnrichedEpub private constructor(
         return Jsoup.parse(zip.text(href), "", Parser.xmlParser()).also { parsed = href to it }
     }
 
-    /** Clean copies, their images linked to [ReaderUrls.BOOK]. */
-    private fun prepared(nodes: List<Node>, href: String): List<Node> = nodes.mapNotNull { node ->
-        if (node !is Element) return@mapNotNull node
-        if (node.normalName() in DROPPED) return@mapNotNull null
-        node.select(DROPPED.joinToString()).remove()
-        for (element in node.selectXpath("descendant-or-self::*")) {
-            element.attributes().asList()
-                .filter { it.key == "style" || it.key.startsWith("on") }
-                .forEach { element.removeAttr(it.key) }
-        }
-        for (image in node.select("img, image")) {
-            val linked = image.attr("src").ifEmpty { image.attr("href") }.ifEmpty { image.attr("xlink:href") }
-            image.removeAttr("src").removeAttr("href").removeAttr("xlink:href")
-            val path = if (linked.isEmpty() || EpubPaths.isExternal(linked)) "" else EpubPaths.resolve(href, linked)
-            if (!zip.has(path)) continue
-            val url = ReaderUrls.BOOK + EpubPaths.percentEncode(path)
-            image.attr(if (image.normalName() == "img") "src" else "xlink:href", url)
-        }
-        node
-    }
-
     companion object {
         const val FORMAT = 2
         private const val BOOK_JSON = "yomiage.json"
-        private const val XHTML = "http://www.w3.org/1999/xhtml"
-        private const val EPUB_OPS = "http://www.idpf.org/2007/ops"
-        private const val XLINK = "http://www.w3.org/1999/xlink"
+        internal const val XHTML = "http://www.w3.org/1999/xhtml"
+        internal const val EPUB_OPS = "http://www.idpf.org/2007/ops"
+        internal const val XLINK = "http://www.w3.org/1999/xlink"
         private val DROPPED = setOf("script", "style", "link", "iframe", "object", "embed")
 
         /** Blocks a chapter can start at; the same ones the build counts. */
@@ -117,24 +96,38 @@ class EnrichedEpub private constructor(
         fun open(zip: ZipIndex): EnrichedEpub {
             val opfPath = packagePath(zip)
             val manifest = manifestOf(zip, opfPath)
-            val opf = Jsoup.parse(zip.text(opfPath), "", Parser.xmlParser())
-            val items = elements(opf, "item").associate { it.attr("id") to it }
-            val spineElement = elements(opf, "spine").firstOrNull()
-            val spine = elements(opf, "itemref")
-                .mapNotNull { items[it.attr("idref")]?.attr("href") }
-                .map { EpubPaths.resolve(opfPath, it) }
-            val vertical = spineElement?.attr("page-progression-direction") == "rtl"
-            // EPUB 3 marks the cover in the manifest; EPUB 2 names its item in a meta.
-            val coverItem = items.values.firstOrNull { "cover-image" in it.attr("properties").split(' ') }
-                ?: elements(opf, "meta").firstOrNull { it.attr("name") == "cover" }?.let { items[it.attr("content")] }
-            val coverPath = coverItem?.let { EpubPaths.resolve(opfPath, it.attr("href")) }?.takeIf { zip.has(it) }
-            return EnrichedEpub(zip, manifest, spine, vertical, coverPath)
+            val pack = Package.read(zip, opfPath)
+            return EnrichedEpub(zip, manifest, pack.spine, pack.vertical, pack.coverPath)
         }
+
+        /** Whether the EPUB has yomiage's phrase data, so it's a narrated book. */
+        fun isEnriched(zip: ZipIndex): Boolean = zip.has(EpubPaths.folderOf(packagePath(zip)) + BOOK_JSON)
 
         /** Just `yomiage.json`: which book a file is, without reading the rest. */
         fun manifestOf(zip: ZipIndex): BookManifest = manifestOf(zip, packagePath(zip))
 
-        private fun packagePath(zip: ZipIndex): String {
+        /** Clean copies, their images linked to [ReaderUrls.BOOK]. */
+        internal fun prepared(zip: ZipIndex, nodes: List<Node>, href: String): List<Node> = nodes.mapNotNull { node ->
+            if (node !is Element) return@mapNotNull node
+            if (node.normalName() in DROPPED) return@mapNotNull null
+            node.select(DROPPED.joinToString()).remove()
+            for (element in node.selectXpath("descendant-or-self::*")) {
+                element.attributes().asList()
+                    .filter { it.key == "style" || it.key.startsWith("on") }
+                    .forEach { element.removeAttr(it.key) }
+            }
+            for (image in node.select("img, image")) {
+                val linked = image.attr("src").ifEmpty { image.attr("href") }.ifEmpty { image.attr("xlink:href") }
+                image.removeAttr("src").removeAttr("href").removeAttr("xlink:href")
+                val path = if (linked.isEmpty() || EpubPaths.isExternal(linked)) "" else EpubPaths.resolve(href, linked)
+                if (!zip.has(path)) continue
+                val url = ReaderUrls.BOOK + EpubPaths.percentEncode(path)
+                image.attr(if (image.normalName() == "img") "src" else "xlink:href", url)
+            }
+            node
+        }
+
+        internal fun packagePath(zip: ZipIndex): String {
             if (!zip.has("META-INF/container.xml")) throw BookError("Not an EPUB.")
             val container = Jsoup.parse(zip.text("META-INF/container.xml"), "", Parser.xmlParser())
             val path = elements(container, "rootfile").firstOrNull()?.attr("full-path")
@@ -157,12 +150,12 @@ class EnrichedEpub private constructor(
         }
 
         /** Elements by local name, whatever prefix the file gave them (`opf:item` in some EPUB 2 packages). */
-        private fun elements(document: Document, localName: String): List<Element> =
+        internal fun elements(document: Document, localName: String): List<Element> =
             document.allElements.filter { it.tagName().substringAfter(':') == localName }
 
-        private fun bodyOf(document: Document): Element? = elements(document, "body").firstOrNull()
+        internal fun bodyOf(document: Document): Element? = elements(document, "body").firstOrNull()
 
-        private fun namespacesOf(document: Document): Map<String, String> =
+        internal fun namespacesOf(document: Document): Map<String, String> =
             document.children().firstOrNull()?.attributes()?.asList()
                 ?.filter { it.key.startsWith("xmlns:") }
                 ?.associate { it.key to it.value }

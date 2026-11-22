@@ -25,7 +25,7 @@ class BookFilesTest {
         assertEquals("b1", mao.manifest.bookId)
 
         val plain = identify("plain.epub", TestFiles.epub("b2", "Plain", phraseData = false))
-        assertEquals("No phrase data in this EPUB. Build it with yomiage first.", (plain as BookFiles.Other).reason)
+        assertEquals("plain", (plain as BookFiles.Plain).title, "an EPUB without phrase data is a plain book")
         val photo = identify("photo.jpg", byteArrayOf(1, 2, 3, 4))
         assertEquals("Not an EPUB or a voice file.", (photo as BookFiles.Other).reason)
     }

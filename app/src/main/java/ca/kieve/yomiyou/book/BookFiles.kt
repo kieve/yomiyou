@@ -1,6 +1,8 @@
 package ca.kieve.yomiyou.book
 
 import java.io.IOException
+import java.nio.ByteBuffer
+import java.security.MessageDigest
 
 /**
  * The files of a book folder: what each one is, what it's called there, and which go together. They're named as
@@ -23,6 +25,11 @@ object BookFiles {
     fun cover(title: String, mediaType: String) = FolderNames.file(title, ".cover." + extensionOf(mediaType))
 
     fun isEpub(name: String) = name.endsWith(EPUB_ENDING, ignoreCase = true)
+
+    /** A book's original EPUB, as Kavita or the publisher made it (no narration): `<title>.epub`. */
+    fun original(title: String) = FolderNames.file(title, ".epub")
+
+    fun isOriginal(name: String) = name.endsWith(".epub", ignoreCase = true) && !isEpub(name)
 
     /** The voice id a voice file's name ends with, if it's named as one. */
     fun voiceOf(name: String): String? =
@@ -56,6 +63,9 @@ object BookFiles {
 
     class Book(override val name: String, val manifest: BookManifest) : Found
 
+    /** An EPUB without narration: its ID is the file's hash, as yomiage names books. */
+    class Plain(override val name: String, val bookId: String, val title: String, val author: String) : Found
+
     class Voice(override val name: String, val manifest: VoiceManifest) : Found
 
     class Other(override val name: String, val reason: String) : Found
@@ -64,15 +74,40 @@ object BookFiles {
 
     class MoreVoices(val bookId: String, val voices: List<Voice>)
 
-    class Plan(val books: List<NewBook>, val moreVoices: List<MoreVoices>, val problems: List<String>)
+    class Plan(
+        val books: List<NewBook>,
+        val moreVoices: List<MoreVoices>,
+        val problems: List<String>,
+        val plain: List<Plain> = emptyList(),
+    )
 
-    /** Reads [access] (and closes it) to tell an enriched EPUB from a voice file. */
+    /** A file's ID as yomiage gives one: the first 32 hex digits of its SHA-256. */
+    fun contentId(access: RandomAccess): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        val buffer = ByteBuffer.allocate(1 shl 20)
+        var at = 0L
+        while (at < access.size) {
+            buffer.clear()
+            buffer.limit(minOf(buffer.capacity().toLong(), access.size - at).toInt())
+            access.readFully(at, buffer)
+            buffer.flip()
+            at += buffer.remaining()
+            digest.update(buffer)
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }.take(32)
+    }
+
+    /** Reads [access] (and closes it) to tell an enriched EPUB, a plain one and a voice file apart. */
     fun identify(name: String, access: RandomAccess): Found = try {
         ZipIndex.open(access).use { zip ->
-            if (zip.has(VoiceManifest.FILE)) {
-                Voice(name, VoiceManifest.of(zip))
-            } else {
-                Book(name, EnrichedEpub.manifestOf(zip))
+            when {
+                zip.has(VoiceManifest.FILE) -> Voice(name, VoiceManifest.of(zip))
+                EnrichedEpub.isEnriched(zip) -> Book(name, EnrichedEpub.manifestOf(zip))
+                else -> {
+                    val book = PlainEpub.open(zip)
+                    val title = book.title.ifEmpty { name.substringBeforeLast('.') }
+                    Plain(name, contentId(access), title, book.author)
+                }
             }
         }
     } catch (e: BookError) {
@@ -107,7 +142,12 @@ object BookFiles {
             }
         }
         val books = new.map { epub -> NewBook(epub, voices.filter { it.manifest.bookId == epub.manifest.bookId }) }
-        return Plan(books, more.map { (bookId, list) -> MoreVoices(bookId, list) }, problems)
+        val (plainOnShelf, plain) = found.filterIsInstance<Plain>()
+            .distinctBy { it.bookId }
+            .filter { it.bookId !in newIds }
+            .partition { it.bookId in shelf }
+        plainOnShelf.forEach { problems += "${it.title} is already on the shelf." }
+        return Plan(books, more.map { (bookId, list) -> MoreVoices(bookId, list) }, problems, plain)
     }
 
     /**

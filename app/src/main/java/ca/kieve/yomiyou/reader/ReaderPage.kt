@@ -27,6 +27,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
@@ -103,11 +104,16 @@ class ReaderPage(
         view.loadUrl(ReaderUrls.PAGE)
     }
 
-    /** Starts the book at [chapter]: at [span] if given, else at the chapter's start; [server]: readings can be fixed. */
-    fun open(chapter: Int, span: Long?, style: ReadingStyle, server: Boolean = false) {
+    /**
+     * Starts the book at [chapter]: at [span] (a phrase) or [path] (a plain book's block) if given, else at the
+     * chapter's start; [server]: readings can be fixed.
+     */
+    fun open(chapter: Int, span: Long?, style: ReadingStyle, server: Boolean = false, path: String? = null) {
         this.style = style
         val start = buildJsonObject {
             put("vertical", book.vertical)
+            put("plain", book.plain)
+            put("path", path?.let(::JsonPrimitive) ?: JsonNull)
             put("count", book.chapters.size)
             put("chapter", chapter)
             put("span", span?.let(::JsonPrimitive) ?: JsonNull)
@@ -183,8 +189,12 @@ class ReaderPage(
             "need" -> int("chapter")?.takeIf { it in book.chapters.indices }?.let(::add)
             "position" -> {
                 val chapter = int("chapter") ?: return
-                val span = long("span") ?: return
-                listener.onPosition(Position(chapter, span))
+                val path = message["path"]?.jsonPrimitive?.contentOrNull
+                val span = long("span")
+                when {
+                    path != null -> listener.onPosition(Position(chapter, -1, path))
+                    span != null -> listener.onPosition(Position(chapter, span))
+                }
             }
             "tap" -> listener.onTap(long("span"))
             "double" -> listener.onDoubleTap()

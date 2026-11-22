@@ -86,6 +86,7 @@ import ca.kieve.yomiyou.R
 import ca.kieve.yomiyou.book.BookError
 import ca.kieve.yomiyou.book.EnrichedEpub
 import ca.kieve.yomiyou.book.LibraryBook
+import ca.kieve.yomiyou.book.PlainEpub
 import ca.kieve.yomiyou.book.Position
 import ca.kieve.yomiyou.book.VoiceInfo
 import ca.kieve.yomiyou.book.ZipIndex
@@ -107,7 +108,7 @@ import java.io.IOException
 private sealed interface Opening {
     data object Loading : Opening
     data class Failed(val message: String) : Opening
-    class Open(val entry: LibraryBook, val book: EnrichedEpub) : Opening
+    class Open(val entry: LibraryBook, val book: ReaderBook) : Opening
 }
 
 private const val SAVE_DELAY_MS = 1500L
@@ -138,7 +139,9 @@ fun ReaderScreen(bookId: String, onBack: () -> Unit) {
 
 private suspend fun open(services: Services, bookId: String): Opening? {
     val entry = services.library.find(bookId) ?: return null
-    val file = entry.epub ?: return null
+    // Narrated when it has its narration, else the original as a plain book.
+    val narrated = entry.epub
+    val file = narrated ?: entry.original ?: return null
     runCatching { services.library.updateInfo(entry) { it.copy(lastOpened = System.currentTimeMillis()) } }
     val access = try {
         services.library.open(file)
@@ -146,7 +149,8 @@ private suspend fun open(services: Services, bookId: String): Opening? {
         return Opening.Failed(e.message ?: e.toString())
     }
     return try {
-        Opening.Open(entry, EnrichedEpub.open(ZipIndex.open(access)))
+        val zip = ZipIndex.open(access)
+        Opening.Open(entry, if (narrated != null) EnrichedEpub.open(zip) else PlainEpub.open(zip))
     } catch (e: Exception) {
         access.close()
         Opening.Failed(if (e is BookError) e.message.orEmpty() else e.toString())
@@ -154,7 +158,7 @@ private suspend fun open(services: Services, bookId: String): Opening? {
 }
 
 @Composable
-private fun Reader(entry: LibraryBook, book: EnrichedEpub, onBack: () -> Unit) {
+private fun Reader(entry: LibraryBook, book: ReaderBook, onBack: () -> Unit) {
     val context = LocalContext.current
     val services = context.services
     val scope = rememberCoroutineScope()
@@ -174,6 +178,8 @@ private fun Reader(entry: LibraryBook, book: EnrichedEpub, onBack: () -> Unit) {
         ?: entry.info.position?.takeIf { it.chapter in book.chapters.indices }
     var chapter by rememberSaveable { mutableIntStateOf(start?.chapter ?: 0) }
     var span by rememberSaveable { mutableLongStateOf(start?.span ?: -1L) }
+    /** A plain book's place: the block's path (Kavita's form); null in a narrated one. */
+    var path by rememberSaveable { mutableStateOf(start?.path) }
     var controls by rememberSaveable { mutableStateOf(false) }
     var options by rememberSaveable { mutableStateOf(false) }
     var ready by remember { mutableStateOf(false) }
@@ -201,6 +207,7 @@ private fun Reader(entry: LibraryBook, book: EnrichedEpub, onBack: () -> Unit) {
                 if (!following) {
                     chapter = position.chapter
                     span = position.span
+                    path = position.path
                 }
             }
 
@@ -240,7 +247,7 @@ private fun Reader(entry: LibraryBook, book: EnrichedEpub, onBack: () -> Unit) {
 
     LaunchedEffect(ready, style == null) {
         val current = style ?: return@LaunchedEffect
-        if (ready) page.open(chapter, span.takeIf { it >= 0 }, current, fromServer)
+        if (ready) page.open(chapter, span.takeIf { it >= 0 }, current, fromServer, path)
     }
     LaunchedEffect(style) {
         style?.let { if (ready) page.applyStyle(it) }
@@ -261,16 +268,16 @@ private fun Reader(entry: LibraryBook, book: EnrichedEpub, onBack: () -> Unit) {
             }
         }
     }
-    LaunchedEffect(chapter, span) {
-        if (span < 0) return@LaunchedEffect
+    LaunchedEffect(chapter, span, path) {
+        if (span < 0 && path == null) return@LaunchedEffect
         delay(SAVE_DELAY_MS)
-        services.library.updateInfo(entry) { it.copy(position = Position(chapter, span)) }
+        services.library.updateInfo(entry) { it.copy(position = Position(chapter, span, path)) }
     }
-    val latest by rememberUpdatedState(Position(chapter, span))
+    val latest by rememberUpdatedState(Position(chapter, span, path))
     DisposableEffect(entry) {
         onDispose {
             val position = latest
-            if (position.span >= 0) {
+            if (position.span >= 0 || position.path != null) {
                 services.scope.launch { services.library.updateInfo(entry) { it.copy(position = position) } }
             }
         }
@@ -306,6 +313,7 @@ private fun Reader(entry: LibraryBook, book: EnrichedEpub, onBack: () -> Unit) {
                     options = false
                     chapter = index
                     span = -1
+                    path = null
                     page.jump(index)
                     if (here) narration.moveTo(index)
                 }
@@ -477,7 +485,8 @@ private fun BottomControls(
                 HorizontalDivider(Modifier.padding(vertical = 8.dp))
             }
             if (voices.isNotEmpty()) VoiceMenu(voices, voice, onVoice)
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            // A plain book has no narration to play.
+            if (voices.isNotEmpty()) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                 FilledIconButton(onClick = onPlay) {
                     if (playing) {
                         Icon(painterResource(R.drawable.ic_pause), stringResource(R.string.reader_pause))
